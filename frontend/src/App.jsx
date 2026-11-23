@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import UserApp from './pages/UserApp'
 import AdminPanel from './admin/AdminPanel'
+import { ToastProvider } from './context/ToastContext'
 
 export default function App() {
   useEffect(() => {
@@ -10,7 +11,11 @@ export default function App() {
   }, [])
 
   if (window.location.pathname.startsWith('/admin')) {
-    return <AdminPanel />
+    return (
+      <ToastProvider>
+        <AdminPanel />
+      </ToastProvider>
+    )
   }
   return <UserApp />
 }
