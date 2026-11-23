@@ -21,14 +21,24 @@ async def register_user(payload: dict) -> dict:
     path = f"bot_users/{user_id}"
     existing = (await read_data(path)) or {}
     name = str(payload.get("first_name") or "")
+    last_name = str(payload.get("last_name") or "")
     username = str(payload.get("username") or "")
+    photo_url = str(payload.get("photo_url") or "")
+    language = str(payload.get("language_code") or "")
     update: dict = {"last_seen": int(time.time() * 1000)}
     if not existing:
         update["joined_at"] = int(time.time() * 1000)
-        if name:
-            update["first_name"] = name
-        if username:
-            update["username"] = username
+    if name:
+        update["first_name"] = name
+    if last_name:
+        update["last_name"] = last_name
+    if username:
+        update["username"] = username
+    if photo_url:
+        update["photo_url"] = photo_url
+    if language:
+        update["language_code"] = language
+    update["telegram_id"] = user_id
     await update_data(path, update)
 
     referrer = str(payload.get("referrer") or "").strip()

@@ -8,6 +8,8 @@ import { useToast } from '../context/ToastContext'
 export default function PurchaseModal({ mode, target, userId, onClose, onSuccess }) {
   const { showToast } = useToast()
   const payConfig = useFirebaseObject('payments_config') || {}
+  const wallet = useFirebaseObject(userId ? `user_wallets/${userId}` : '__none__') || {}
+  const balance = Number(wallet.balance || 0)
   const [step, setStep] = useState('method')
   const [purchaseId, setPurchaseId] = useState(null)
   const [checkoutUrl, setCheckoutUrl] = useState('')
@@ -65,6 +67,29 @@ export default function PurchaseModal({ mode, target, userId, onClose, onSuccess
 
   const itemLabel = target?.name
 
+  async function payWithBalance() {
+    if (!isBackendEnabled()) {
+      setError('Backend চালু থাকতে হবে')
+      return
+    }
+    setError('')
+    try {
+      const payload =
+        mode === 'package' ? { user_id: userId, package_key: target._fbKey } : { user_id: userId, video_id: target._fbKey || target.id }
+      const res = await api.walletPay(payload)
+      if (res.ok) {
+        cleanup()
+        showToast('Balance দিয়ে কেনা সম্পন্ন! Unlocked 🎉')
+        onSuccess && onSuccess()
+        onClose()
+        return
+      }
+      setError(res.reason === 'insufficient' ? `Balance যথেষ্ট নয় (আছে: ${res.balance} USDT)` : 'কেনা সম্ভব হয়নি')
+    } catch (e) {
+      setError('সার্ভারে সংযোগ করা যায়নি')
+    }
+  }
+
   async function payWithBinance() {
     if (!isBackendEnabled()) {
       setError('Binance Pay এর জন্য Backend চালু থাকতে হবে')
@@ -119,7 +144,15 @@ export default function PurchaseModal({ mode, target, userId, onClose, onSuccess
         return
       }
       setPurchaseId(res.purchase_id)
-      setStep('manual-waiting')
+      setStep('crypto-waiting')
+      pollRef.current = setInterval(async () => {
+        try {
+          const check = await api.binanceIdCheck(res.purchase_id)
+          if (check.status === 'approved') cleanup()
+        } catch {
+          /* keep polling */
+        }
+      }, 5000)
     } catch (e) {
       setError('সার্ভারে সংযোগ করা যায়নি')
     }
@@ -222,6 +255,16 @@ export default function PurchaseModal({ mode, target, userId, onClose, onSuccess
               {manualAmount ? `${manualAmount} ৳` : `${amount} USDT`}
             </div>
             {error && <p style={{ color: '#ef4444', fontSize: 13 }}>{error}</p>}
+            {isBackendEnabled() && (
+              <button
+                className="pay-method-btn crypto"
+                style={{ background: 'linear-gradient(135deg, #0d9488, #14b8a6)' }}
+                disabled={balance < amount}
+                onClick={payWithBalance}
+              >
+                <i className="fas fa-wallet" /> Balance দিয়ে কিনুন ({balance} USDT)
+              </button>
+            )}
             {payConfig.binance_enabled !== false && (
               <button className="pay-method-btn" onClick={payWithBinance}>
                 <i className="fab fa-bitcoin" /> Binance Pay (Auto Verify)
@@ -270,7 +313,7 @@ export default function PurchaseModal({ mode, target, userId, onClose, onSuccess
               ))}
             </div>
             <div style={{ fontSize: 12, color: '#9ca3af', marginBottom: 8 }}>
-              Binance-এ এই Pay ID-তে <b>{amount} USDT</b> পাঠান, তারপর Transfer/TXID নিচে লিখুন। অ্যাডমিন ভেরিফাই করলেই আনলক হবে।
+              Binance-এ এই Pay ID-তে <b>{amount} USDT</b> পাঠান, তারপর Transfer/TXID নিচে লিখুন — <b>অটো ভেরিফাই</b> হবে ✅
             </div>
             <input
               type="text"

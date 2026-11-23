@@ -25,6 +25,33 @@ def _sale_active(pkg: dict, now_ms: int) -> bool:
     return bool(until and now_ms <= until and has_price)
 
 
+async def credit_balance(user_id: str, amount: float) -> None:
+    path = f"user_wallets/{user_id}"
+    current = (await read_data(path)) or {}
+    balance = float(current.get("balance") or 0)
+    await update_data(path, {"balance": round(balance + amount, 8), "updated_at": int(time.time() * 1000)})
+
+
+async def _match_binance_pay(ref: str, required: float, currency: str, cfg: dict) -> bool:
+    result = await binance.query_pay_transactions(cfg)
+    if not result.get("ok"):
+        return False
+    for tx in result.get("items") or []:
+        if not isinstance(tx, dict):
+            continue
+        tx_id = str(tx.get("transactionId") or tx.get("id") or "").strip()
+        if tx_id != ref:
+            continue
+        try:
+            tx_amount = float(tx.get("amount") or 0)
+        except (TypeError, ValueError):
+            continue
+        tx_currency = str(tx.get("currency") or "")
+        if tx_amount >= required and (tx_currency == currency or not tx_currency):
+            return True
+    return False
+
+
 async def _build_purchase(payload: dict, method: str) -> dict:
     user_id = str(payload.get("user_id") or "")
     if not user_id:
@@ -48,7 +75,7 @@ async def _build_purchase(payload: dict, method: str) -> dict:
             raise HTTPException(status_code=404, detail="Package not found")
         purchase["package_name"] = pkg.get("name")
         on_sale = _sale_active(pkg, now)
-        if method in ("binance", "crypto", "binance_id"):
+        if method in ("binance", "crypto", "binance_id", "wallet"):
             sale_usdt = float(pkg.get("sale_price") or 0)
             purchase["amount"] = sale_usdt if (on_sale and sale_usdt) else float(pkg.get("price", 0))
         else:
@@ -56,7 +83,7 @@ async def _build_purchase(payload: dict, method: str) -> dict:
             base = float(pkg.get("bkash_price", 0) or pkg.get("price", 0))
             purchase["amount"] = sale_bdt if (on_sale and sale_bdt) else base
         purchase["on_sale"] = on_sale
-        purchase["currency"] = "USDT" if method in ("binance", "crypto", "binance_id") else "BDT"
+        purchase["currency"] = "USDT" if method in ("binance", "crypto", "binance_id", "wallet") else "BDT"
         purchase["duration_days"] = int(pkg.get("duration_days", 0) or 0)
         purchase["video_count"] = int(pkg.get("video_count", 0) or 0)
     elif video_id:
@@ -283,6 +310,159 @@ async def binance_id_submit(payload: dict) -> dict:
     purchase["transaction_ref"] = ref_id
     purchase_id = await push_data("purchases", purchase)
     return {"ok": True, "purchase_id": purchase_id}
+
+
+@router.get("/binance-id/check/{purchase_id}")
+async def binance_id_check(purchase_id: str) -> dict:
+    purchase = await read_data(f"purchases/{purchase_id}")
+    if not purchase:
+        raise HTTPException(status_code=404, detail="Purchase not found")
+    if purchase.get("status") == "approved":
+        return {"ok": True, "status": "approved"}
+
+    cfg = (await read_data("payments_config")) or {}
+    result = await binance.query_pay_transactions(cfg)
+    if not result.get("ok"):
+        return {"ok": True, "status": purchase.get("status") or "pending", "auto": False}
+
+    approved = await _match_binance_pay(
+        str(purchase.get("transaction_ref") or ""),
+        float(purchase.get("amount") or 0),
+        str(purchase.get("currency") or "USDT"),
+        cfg,
+    )
+    if approved:
+        now = int(time.time() * 1000)
+        await update_data(
+            f"purchases/{purchase_id}",
+            {"status": "approved", "verified_at": now, "verified_by": "auto-binance-pay"},
+        )
+        await apply_purchase({**purchase, "status": "approved"})
+        return {"ok": True, "status": "approved"}
+
+    return {"ok": True, "status": purchase.get("status") or "pending", "auto": True}
+
+
+@router.post("/deposits/submit")
+async def deposit_submit(payload: dict) -> dict:
+    user_id = str(payload.get("user_id") or "")
+    method = str(payload.get("method") or "").strip()
+    ref = str(payload.get("ref") or "").strip()
+    try:
+        amount = float(payload.get("amount") or 0)
+    except (TypeError, ValueError):
+        amount = 0
+    network = str(payload.get("network") or "").upper()
+    if not user_id or amount <= 0 or not ref or method not in ("crypto", "binance_id"):
+        return {"ok": False, "reason": "invalid"}
+    deposit = {
+        "user_id": user_id,
+        "amount": amount,
+        "method": method,
+        "crypto_network": network or None,
+        "transaction_ref": ref,
+        "status": "pending",
+        "created_at": int(time.time() * 1000),
+    }
+    deposit_id = await push_data("deposits", deposit)
+    auto = method == "binance_id" or network in AUTO_VERIFY_NETWORKS
+    return {"ok": True, "deposit_id": deposit_id, "auto": auto}
+
+
+@router.get("/deposits/check/{deposit_id}")
+async def deposit_check(deposit_id: str) -> dict:
+    deposit = await read_data(f"deposits/{deposit_id}")
+    if not deposit:
+        raise HTTPException(status_code=404, detail="Deposit not found")
+    if deposit.get("status") == "approved":
+        return {"ok": True, "status": "approved"}
+
+    cfg = (await read_data("payments_config")) or {}
+    ref = str(deposit.get("transaction_ref") or "")
+    required = float(deposit.get("amount") or 0)
+    method = str(deposit.get("method") or "")
+
+    approved = False
+    reason = None
+    if method == "crypto":
+        network = str(deposit.get("crypto_network") or "").upper()
+        verifier = AUTO_VERIFY_NETWORKS.get(network)
+        if not verifier:
+            return {"ok": True, "status": "pending", "auto": False}
+        wallets = cfg.get("crypto_wallets") or []
+        if isinstance(wallets, dict):
+            wallets = list(wallets.values())
+        wallet = next(
+            (w for w in wallets if isinstance(w, dict) and str(w.get("network", "")).upper() == network),
+            None,
+        )
+        if not wallet:
+            return {"ok": False, "status": "pending", "reason": "wallet-missing"}
+        result = await verifier(ref, wallet.get("address") or "", required)
+        approved = bool(result.get("ok"))
+        reason = result.get("reason")
+    elif method == "binance_id":
+        approved = await _match_binance_pay(ref, required, "USDT", cfg)
+
+    if approved:
+        now = int(time.time() * 1000)
+        await update_data(
+            f"deposits/{deposit_id}",
+            {"status": "approved", "verified_at": now},
+        )
+        await credit_balance(str(deposit.get("user_id") or ""), required)
+        return {"ok": True, "status": "approved", "amount": required}
+
+    return {"ok": True, "status": "pending", "reason": reason}
+
+
+@router.get("/deposits", dependencies=[Depends(require_admin_key)])
+async def list_deposits() -> Any:
+    return await read_data("deposits")
+
+
+@router.post("/deposits/{deposit_id}/approve", dependencies=[Depends(require_admin_key)])
+async def approve_deposit(deposit_id: str) -> dict:
+    deposit = await read_data(f"deposits/{deposit_id}")
+    if not deposit:
+        raise HTTPException(status_code=404, detail="Deposit not found")
+    if deposit.get("status") != "approved":
+        now = int(time.time() * 1000)
+        await update_data(f"deposits/{deposit_id}", {"status": "approved", "verified_at": now})
+        await credit_balance(str(deposit.get("user_id") or ""), float(deposit.get("amount") or 0))
+    return {"ok": True}
+
+
+@router.post("/deposits/{deposit_id}/reject", dependencies=[Depends(require_admin_key)])
+async def reject_deposit(deposit_id: str) -> dict:
+    await update_data(f"deposits/{deposit_id}", {"status": "rejected", "verified_at": int(time.time() * 1000)})
+    return {"ok": True}
+
+
+@router.get("/wallet/{user_id}")
+async def wallet_get(user_id: str) -> Any:
+    return await read_data(f"user_wallets/{user_id}")
+
+
+@router.post("/wallet/pay")
+async def wallet_pay(payload: dict) -> dict:
+    user_id = str(payload.get("user_id") or "")
+    if not user_id:
+        raise HTTPException(status_code=400, detail="user_id required")
+    purchase = await _build_purchase(payload, "wallet")
+    amount = float(purchase.get("amount") or 0)
+    wallet = (await read_data(f"user_wallets/{user_id}")) or {}
+    balance = float(wallet.get("balance") or 0)
+    if amount <= 0:
+        raise HTTPException(status_code=400, detail="Invalid amount")
+    if balance < amount:
+        return {"ok": False, "reason": "insufficient", "balance": balance}
+    await update_data(f"user_wallets/{user_id}", {"balance": round(balance - amount, 8), "updated_at": int(time.time() * 1000)})
+    now = int(time.time() * 1000)
+    purchase.update({"status": "approved", "verified_at": now, "verified_by": "wallet"})
+    await push_data("purchases", purchase)
+    await apply_purchase({**purchase, "user_id": user_id, "status": "approved"})
+    return {"ok": True, "balance": round(balance - amount, 8)}
 
 
 @router.post("/use-credit")

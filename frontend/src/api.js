@@ -47,6 +47,30 @@ export const api = {
     if (!isBackendEnabled()) throw new Error('backend-disabled')
     return request('/payments/binance-id/submit', { method: 'POST', body: JSON.stringify(payload) })
   },
+  async binanceIdCheck(purchaseId) {
+    if (!isBackendEnabled()) throw new Error('backend-disabled')
+    return request(`/payments/binance-id/check/${purchaseId}`)
+  },
+  async depositSubmit(payload) {
+    if (!isBackendEnabled()) throw new Error('backend-disabled')
+    return request('/payments/deposits/submit', { method: 'POST', body: JSON.stringify(payload) })
+  },
+  async depositCheck(depositId) {
+    if (!isBackendEnabled()) throw new Error('backend-disabled')
+    return request(`/payments/deposits/check/${depositId}`)
+  },
+  async approveDeposit(depositId) {
+    if (!isBackendEnabled()) throw new Error('backend-disabled')
+    return request(`/payments/deposits/${depositId}/approve`, { method: 'POST' })
+  },
+  async rejectDeposit(depositId) {
+    if (!isBackendEnabled()) throw new Error('backend-disabled')
+    return request(`/payments/deposits/${depositId}/reject`, { method: 'POST' })
+  },
+  async walletPay(payload) {
+    if (!isBackendEnabled()) throw new Error('backend-disabled')
+    return request('/payments/wallet/pay', { method: 'POST', body: JSON.stringify(payload) })
+  },
   async cryptoCheck(purchaseId) {
     if (!isBackendEnabled()) throw new Error('backend-disabled')
     return request(`/payments/crypto/check/${purchaseId}`)

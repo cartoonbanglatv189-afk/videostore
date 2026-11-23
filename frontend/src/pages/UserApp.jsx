@@ -15,6 +15,7 @@ import useEntitlements from '../hooks/useEntitlements'
 import { isVideoEntitled, hasCredits, membershipActive, videoPurchased } from '../utils/entitlements'
 import PurchaseModal from '../components/PurchaseModal'
 import PremiumSection from './sections/PremiumSection'
+import ProfileSection from './sections/ProfileSection'
 import {
   getDaily,
   getProgress,
@@ -96,7 +97,10 @@ function UserAppInner() {
       .registerUser({
         user_id: currentUserId,
         first_name: u?.first_name || '',
+        last_name: u?.last_name || '',
         username: u?.username || '',
+        photo_url: u?.photo_url || '',
+        language_code: u?.language_code || '',
         referrer
       })
       .catch(() => {})
@@ -393,6 +397,7 @@ function UserAppInner() {
         {activeNav === 'tutSec' && <TutorialSection tutorialId={settings.tutorial_id} />}
         {activeNav === 'linkSec' && <LinksSection menuLinks={menuLinks} />}
         {activeNav === 'premiumSec' && <PremiumSection userId={currentUserId} />}
+        {activeNav === 'profileSec' && <ProfileSection userId={currentUserId} />}
       </div>
 
       <BottomNav active={activeNav} onChange={setActiveNav} />

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { ref, update } from 'firebase/database'
+import { ref, update, get } from 'firebase/database'
 import { getDb } from '../../firebase'
 import { useFirebaseList, useFirebaseObject } from '../../hooks/useFirebase'
 import { api, isBackendEnabled } from '../../api'
@@ -10,6 +10,7 @@ export default function PaymentsSection() {
   const { showToast } = useToast()
   const config = useFirebaseObject('payments_config') || {}
   const purchases = useFirebaseList('purchases')
+  const deposits = useFirebaseList('deposits')
 
   const [bKey, setBKey] = useState('')
   const [bSecret, setBSecret] = useState('')
@@ -161,6 +162,32 @@ export default function PaymentsSection() {
     showToast(decision === 'approve' ? 'Approved & Unlocked' : 'Rejected')
   }
 
+  const decideDeposit = async (d, decision) => {
+    if (!window.confirm(`Sure to ${decision} deposit of ${d.amount} USDT?`)) return
+    if (isBackendEnabled()) {
+      try {
+        if (decision === 'approve') await api.approveDeposit(d._fbKey)
+        else await api.rejectDeposit(d._fbKey)
+        showToast(decision === 'approve' ? 'Deposit অ্যাপ্রুভ — Balance যোগ হয়েছে' : 'Rejected')
+        return
+      } catch (e) {
+        console.error('deposit decide failed, fallback', e)
+      }
+    }
+    const db = await getDb()
+    if (!db) return
+    if (decision === 'reject') {
+      await update(ref(db, `deposits/${d._fbKey}`), { status: 'rejected', verified_at: Date.now() })
+    } else {
+      await update(ref(db, `deposits/${d._fbKey}`), { status: 'approved', verified_at: Date.now() })
+      const path = `user_wallets/${d.user_id}`
+      const snap = await get(ref(db, path))
+      const cur = snap.val() || {}
+      await update(ref(db, path), { balance: Number(cur.balance || 0) + Number(d.amount || 0), updated_at: Date.now() })
+    }
+    showToast(decision === 'approve' ? 'Deposit অ্যাপ্রুভ — Balance যোগ হয়েছে' : 'Rejected')
+  }
+
   return (
     <>
       <div className="ad-card">
@@ -301,6 +328,34 @@ export default function PaymentsSection() {
                   ✔
                 </button>
                 <button className="del-btn" onClick={() => decide(p, 'reject')}>
+                  ✖
+                </button>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+
+      <h4 style={{ color: '#14b8a6', margin: '20px 0 5px' }}>💰 Deposit Requests ({deposits.filter(d => d.status === 'pending').length} pending)</h4>
+      <div>
+        {deposits.length === 0 && <p style={{ color: '#666', fontSize: 13 }}>কোনো deposit নেই</p>}
+        {[...deposits].reverse().map(d => (
+          <div key={d._fbKey} className="list-item payable">
+            <div style={{ flex: 1, fontSize: 12 }}>
+              <b>{d.amount} USDT</b> — User: {d.user_id}
+              <div style={{ color: '#9ca3af' }}>
+                {d.method === 'binance_id' ? 'Binance ID' : d.crypto_network || 'Crypto'} | Ref: {String(d.transaction_ref || '').slice(0, 20)}
+              </div>
+              <div style={{ color: d.status === 'approved' ? '#10b981' : d.status === 'rejected' ? '#ef4444' : '#f59e0b', fontWeight: 700 }}>
+                {d.status?.toUpperCase()}
+              </div>
+            </div>
+            {d.status === 'pending' && (
+              <div style={{ display: 'flex', gap: 6 }}>
+                <button className="del-btn" style={{ background: '#10b981' }} onClick={() => decideDeposit(d, 'approve')}>
+                  ✔
+                </button>
+                <button className="del-btn" onClick={() => decideDeposit(d, 'reject')}>
                   ✖
                 </button>
               </div>
