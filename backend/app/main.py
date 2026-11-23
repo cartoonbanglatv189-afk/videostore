@@ -56,3 +56,22 @@ async def health() -> dict:
 async def firebase_config() -> dict:
     cfg = get_settings().web_config
     return {"ok": bool(cfg), "config": cfg}
+
+
+@app.get("/debug/firebase")
+async def debug_firebase() -> dict:
+    import time
+
+    from .firebase_client import delete_data, push_data, read_data
+
+    settings = get_settings()
+    out = {"url": settings.resolved_db_url, "admin_mode": is_admin_mode()}
+    try:
+        key = await push_data("debug/ping", {"at": int(time.time() * 1000)})
+        out["write_ok"] = bool(key)
+        out["read_back_ok"] = bool(key and await read_data(f"debug/ping/{key}"))
+        if key:
+            await delete_data(f"debug/ping/{key}")
+    except Exception as exc:
+        out["error"] = str(exc)
+    return out

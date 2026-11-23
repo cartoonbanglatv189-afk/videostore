@@ -27,8 +27,17 @@ export async function writeWithFallback(path, value, apiCall, payload) {
     }
   }
   const db = await getDb()
-  if (!db) return null
-  return push(ref(db, path), value)
+  if (!db) {
+    window.alert('Firebase connected না! VITE_BACKEND_URL ও Render backend চেক করুন')
+    return null
+  }
+  try {
+    return await push(ref(db, path), value)
+  } catch (e) {
+    console.error('Direct write failed', e)
+    window.alert('Save failed! Firebase Realtime Database Rules চেক করুন (read/write allow করতে হবে)')
+    return null
+  }
 }
 
 export { update, set, ref, get }
