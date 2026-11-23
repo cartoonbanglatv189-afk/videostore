@@ -24,6 +24,7 @@ async def create_video(payload: dict) -> dict:
         "download_link": payload.get("download_link"),
         "category": payload.get("category", "all"),
         "ad_watches_required": int(payload.get("ad_watches_required", 1)),
+        "price": float(payload.get("price") or 0),
         "view_count": int(payload.get("view_count", 0)),
         "created_at": int(time.time() * 1000),
     }

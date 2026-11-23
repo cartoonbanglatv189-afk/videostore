@@ -14,6 +14,7 @@ export default function VideoSection() {
   const [link, setLink] = useState('')
   const [cat, setCat] = useState('all')
   const [req, setReq] = useState(1)
+  const [price, setPrice] = useState('')
 
   const uploadVideo = async () => {
     if (!title || !image || !link) {
@@ -28,14 +29,16 @@ export default function VideoSection() {
         download_link: link,
         category: cat,
         ad_watches_required: parseInt(req) || 1,
+        price: parseFloat(price) || 0,
         created_at: Date.now()
       },
       api.createVideo,
-      { name: title, image_url: image, download_link: link, category: cat, ad_watches_required: parseInt(req) || 1 }
+      { name: title, image_url: image, download_link: link, category: cat, ad_watches_required: parseInt(req) || 1, price: parseFloat(price) || 0 }
     )
     setTitle('')
     setImage('')
     setLink('')
+    setPrice('')
     showToast('Done!')
   }
 
@@ -58,6 +61,8 @@ export default function VideoSection() {
         </select>
         <input type="number" value={req} onChange={e => setReq(e.target.value)} style={{ flex: 1 }} placeholder="Ads Count" />
       </div>
+      <label className="help-text">এই ভিডিওর নিজস্ব দাম (USDT) — খালি রাখলে default price ব্যবহার হবে</label>
+      <input type="number" step="0.01" value={price} onChange={e => setPrice(e.target.value)} placeholder="Per-video price (USDT)" />
       <button className="action-btn" onClick={uploadVideo}>
         PUBLISH VIDEO
       </button>
@@ -65,7 +70,7 @@ export default function VideoSection() {
         {[...videos].reverse().map(v => (
           <div key={v._fbKey} className="list-item">
             <img src={v.image_url} width="30" alt="" />
-            <span style={{ flex: 1 }}>{v.name}</span>
+            <span style={{ flex: 1 }}>{v.name}{v.price ? ` — ${v.price} USDT` : ''}</span>
             <button className="del-btn" onClick={() => confirmDelete('videos', api.deleteVideo, v._fbKey)}>
               X
             </button>

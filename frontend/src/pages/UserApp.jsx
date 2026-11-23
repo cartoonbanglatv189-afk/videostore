@@ -51,6 +51,18 @@ function UserAppInner() {
     return v ? Object.values(v) : []
   }, [adsConfig])
 
+  const videosLenRef = useRef(-1)
+  useEffect(() => {
+    if (videosLenRef.current === -1) {
+      videosLenRef.current = videosRaw.length
+    } else if (videosRaw.length > videosLenRef.current) {
+      showToast('🆕 নতুন ভিডিও যোগ হয়েছে!')
+      videosLenRef.current = videosRaw.length
+    } else {
+      videosLenRef.current = videosRaw.length
+    }
+  }, [videosRaw.length, showToast])
+
   const [activeNav, setActiveNav] = useState('homeSec')
   const [singleVideoId, setSingleVideoId] = useState(null)
   const [purchase, setPurchase] = useState(null)
@@ -269,6 +281,9 @@ function UserAppInner() {
         onUnlock={handleUnlock}
         onLike={handleLike}
         onShare={handleShare}
+        onBuy={handleBuy}
+        entitlements={entitlements}
+        priceLabel={singleVideo?.price ? `${singleVideo.price} USDT` : ''}
       />
 
       {purchase && (

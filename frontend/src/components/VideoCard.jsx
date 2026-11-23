@@ -21,6 +21,7 @@ export default function VideoCard({ video, onUnlock, onLike, onShare, onOpen, on
   const req = video.ad_watches_required || 1
   const isUnlocked = progress >= req || entitled
   const views = video.view_count || 0
+  const isNew = video.created_at && Date.now() - Number(video.created_at) < 86400000
 
   return (
     <div
@@ -47,6 +48,11 @@ export default function VideoCard({ video, onUnlock, onLike, onShare, onOpen, on
         >
           <i className={`${liked ? 'fas' : 'far'} fa-heart`} style={{ color: liked ? '#ec4899' : 'white' }} />
         </button>
+        {isNew && (
+          <span className="new-badge">
+            <i className="fas fa-fire" /> NEW
+          </span>
+        )}
       </div>
       <div className="meta">
         <div className="meta-header">
@@ -91,7 +97,7 @@ export default function VideoCard({ video, onUnlock, onLike, onShare, onOpen, on
               onBuy(video)
             }}
           >
-            <i className="fas fa-bolt" /> অ্যাড ছাড়া কিনে নিন {priceLabel ? `(${priceLabel})` : ''}
+            <i className="fas fa-bolt" /> অ্যাড ছাড়া আনলক করুন {priceLabel ? `— ${priceLabel}` : ''}
           </button>
         )}
       </div>
