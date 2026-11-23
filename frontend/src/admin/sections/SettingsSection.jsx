@@ -12,12 +12,14 @@ export default function SettingsSection() {
   const [sBot, setSBot] = useState('')
   const [sTut, setSTut] = useState('')
   const [sLimit, setSLimit] = useState('')
+  const [sChannel, setSChannel] = useState('')
 
   useEffect(() => {
     if (settings) {
       setSTut(settings.tutorial_id || '')
       setSLimit(settings.ads_limit || 20)
       setSBot(settings.bot_app_link || '')
+      setSChannel(settings.telegram_channel || '')
     }
   }, [settings])
 
@@ -25,7 +27,8 @@ export default function SettingsSection() {
     const payload = {
       tutorial_id: sTut,
       ads_limit: parseInt(sLimit) || 20,
-      bot_app_link: sBot
+      bot_app_link: sBot,
+      telegram_channel: sChannel
     }
     if (isBackendEnabled()) {
       try {
@@ -45,6 +48,8 @@ export default function SettingsSection() {
     <>
       <label className="help-text">Telegram Bot App Link (Direct Link)</label>
       <input type="text" value={sBot} onChange={e => setSBot(e.target.value)} placeholder="https://t.me/your_bot/app" />
+      <label className="help-text">টেলিগ্রাম চ্যানেল (join-বাধ্যতামূলক — খালি থাকলে বন্ধ)</label>
+      <input type="text" value={sChannel} onChange={e => setSChannel(e.target.value)} placeholder="@your_channel" />
       <label className="help-text">Tutorial ID (Youtube)</label>
       <input type="text" value={sTut} onChange={e => setSTut(e.target.value)} />
       <label className="help-text">Daily Limit</label>

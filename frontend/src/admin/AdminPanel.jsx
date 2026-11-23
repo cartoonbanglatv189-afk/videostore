@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import DashboardSection from './sections/DashboardSection'
 import VideoSection from './sections/VideoSection'
 import AdsSection from './sections/AdsSection'
 import CategorySection from './sections/CategorySection'
@@ -8,6 +9,7 @@ import PackageSection from './sections/PackageSection'
 import PaymentsSection from './sections/PaymentsSection'
 
 const SECTIONS = {
+  secDash: { title: '📊 ড্যাশবোর্ড ও নোটিশ', icon: 'fa-chart-line', label: 'ড্যাশবোর্ড' },
   secVideo: { title: '🎬 ভিডিও আপলোড', icon: 'fa-video', label: 'ভিডিও আপলোড' },
   secAds: { title: '💰 অ্যাড সেটআপ', icon: 'fa-sack-dollar', label: 'অ্যাড সেটআপ' },
   secCat: { title: '🏷️ ক্যাটাগরি', icon: 'fa-tags', label: 'ক্যাটাগরি' },
@@ -49,6 +51,7 @@ export default function AdminPanel() {
           <div />
         </div>
       </div>
+      {active === 'secDash' && <DashboardSection />}
       {active === 'secVideo' && <VideoSection />}
       {active === 'secAds' && <AdsSection />}
       {active === 'secCat' && <CategorySection />}

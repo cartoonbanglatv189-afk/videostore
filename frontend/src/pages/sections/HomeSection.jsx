@@ -5,13 +5,16 @@ import { isVideoEntitled } from '../../utils/entitlements'
 export default function HomeSection({ allVideos, filters, bannerAds, onUnlock, onLike, onShare, onOpen, onBuy, entitlements }) {
   const [query, setQuery] = useState('')
   const [currentFilter, setCurrentFilter] = useState('all')
+  const [sortMode, setSortMode] = useState('new')
 
   const getCount = id => (id === 'all' ? allVideos.length : allVideos.filter(v => v.category === id).length)
 
   const visibleVideos = useMemo(() => {
     const q = query.toLowerCase()
-    return allVideos.filter(v => v.name.toLowerCase().includes(q) && (currentFilter === 'all' || v.category === currentFilter))
-  }, [allVideos, query, currentFilter])
+    const list = allVideos.filter(v => v.name.toLowerCase().includes(q) && (currentFilter === 'all' || v.category === currentFilter))
+    if (sortMode === 'hot') return [...list].sort((a, b) => (b.view_count || 0) - (a.view_count || 0))
+    return list
+  }, [allVideos, query, currentFilter, sortMode])
 
   return (
     <div className="fadeIn">
@@ -26,6 +29,15 @@ export default function HomeSection({ allVideos, filters, bannerAds, onUnlock, o
         <div className="search-icon">
           <i className="fas fa-search" />
         </div>
+      </div>
+
+      <div className="sort-row">
+        <button className={`sort-btn ${sortMode === 'new' ? 'active' : ''}`} onClick={() => setSortMode('new')}>
+          🆕 নতুন
+        </button>
+        <button className={`sort-btn ${sortMode === 'hot' ? 'active' : ''}`} onClick={() => setSortMode('hot')}>
+          🔥 জনপ্রিয়
+        </button>
       </div>
 
       <div className="filter-scroll">

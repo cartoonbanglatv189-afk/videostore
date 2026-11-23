@@ -179,4 +179,5 @@ VITE_ADMIN_KEY=super-secret-admin-key
 ## Deployment টিপস
 - **Vercel (frontend)** — মাত্র ২টা env: `VITE_BACKEND_URL`, `VITE_ADMIN_KEY` (Firebase কিছুই লাগবে না)
 - **Render (backend)** — env: `FIREBASE_SERVICE_ACCOUNT_JSON`, `ADMIN_KEY`, (সুপারিশকৃত) `FIREBASE_WEB_CONFIG`, (ঐচ্ছিক) `CORS_ORIGINS`
+- **Telegram Bot env (Render)** — `TELEGRAM_BOT_TOKEN` (BotFather থেকে; থাকলে নোটিশ/ব্রডকাস্ট/রেফার-বাউন্টি কাজ করবে), `TELEGRAM_AUTO_NOTIFY=1` (নতুন ভিডিওতে অটো-নোটিশ)
 - Telegram Bot: BotFather এ `/newapp` বা Menu button এ frontend URL দিন।

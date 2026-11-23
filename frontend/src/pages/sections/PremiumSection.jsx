@@ -14,9 +14,17 @@ export default function PremiumSection({ userId }) {
   const active = packages.filter(p => p.active !== false)
   const credits = hasCredits(entitlements)
   const isMember = membershipActive(entitlements)
+  const msLeft = entitlements?.membership_until ? Number(entitlements.membership_until) - Date.now() : 0
+  const expiringSoon = isMember && msLeft > 0 && msLeft < 3 * 86400000
+  const daysLeft = Math.max(0, Math.ceil(msLeft / 86400000))
 
   return (
     <div className="fadeIn">
+      {expiringSoon && (
+        <div className="expire-banner">
+          ⚠️ মেম্বারশিপ প্রায় শেষ! বাকি {daysLeft} দিন — এখনই নবায়ন করুন 👇
+        </div>
+      )}
       <h3 style={{ color: '#a855f7', marginLeft: 5 }}>👑 প্রিমিয়াম প্যাকেজ</h3>
 
       <div className="info-box" style={{ display: 'flex', gap: 15, justifyContent: 'space-around' }}>

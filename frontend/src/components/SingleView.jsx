@@ -1,9 +1,13 @@
 import { useEffect, useState } from 'react'
 import VideoCard from './VideoCard'
 import { hasCredits, membershipActive, videoPurchased } from '../utils/entitlements'
+import { useFirebaseList } from '../hooks/useFirebase'
+import { api } from '../api'
 
-export default function SingleView({ video, onClose, onUnlock, onLike, onShare, onBuy, entitlements = null, priceLabel = '' }) {
+export default function SingleView({ video, onClose, onUnlock, onLike, onShare, onBuy, entitlements = null, priceLabel = '', userId }) {
   const [active, setActive] = useState(false)
+  const ratings = useFirebaseList(video ? `ratings/${video.id}` : '__none__')
+  const [myStars, setMyStars] = useState(0)
 
   useEffect(() => {
     if (video) {
@@ -18,6 +22,7 @@ export default function SingleView({ video, onClose, onUnlock, onLike, onShare, 
 
   if (!video) return null
 
+  const avgStars = ratings.length ? (ratings.reduce((a, r) => a + (r.stars || 0), 0) / ratings.length).toFixed(1) : null
   const req = video.ad_watches_required || 1
   const purchased = videoPurchased(entitlements, video.id)
   const member = membershipActive(entitlements)
@@ -38,6 +43,32 @@ export default function SingleView({ video, onClose, onUnlock, onLike, onShare, 
         priceLabel={priceLabel}
         inSingleView
       />
+
+      <div className="rating-box">
+        <span className="rating-title">⭐ রেটিং {avgStars ? `— ${avgStars} (${ratings.length})` : ''}</span>
+        <div className="rating-stars">
+          {[1, 2, 3, 4, 5].map(star => (
+            <button
+              key={star}
+              className="star-btn"
+              onClick={async () => {
+                setMyStars(star)
+                try {
+                  await api.rateVideo(video.id, {
+                    user_id: userId,
+                    stars: star,
+                    first_name: window.Telegram?.WebApp?.initDataUnsafe?.user?.first_name || ''
+                  })
+                } catch (e) {
+                  console.error('rate failed', e)
+                }
+              }}
+            >
+              <i className={`fa-star ${(myStars || 0) >= star ? 'fas active' : 'far'}`} />
+            </button>
+          ))}
+        </div>
+      </div>
 
       <div className="pay-guide">
         <div className="pay-guide-title">🔒 এই ভিডিও দেখার আগে আনলক করতে হবে</div>

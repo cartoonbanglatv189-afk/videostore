@@ -28,6 +28,8 @@ def get_settings() -> "Settings":
 class Settings:
     firebase_db_url: str = os.getenv("FIREBASE_DB_URL", "").rstrip("/")
     firebase_web_config: str = os.getenv("FIREBASE_WEB_CONFIG", "")
+    telegram_bot_token: str = os.getenv("TELEGRAM_BOT_TOKEN", "").strip()
+    telegram_auto_notify: str = os.getenv("TELEGRAM_AUTO_NOTIFY", "1")
     firebase_service_account_path: str = os.getenv("FIREBASE_SERVICE_ACCOUNT", "")
     firebase_service_account_json: str = os.getenv("FIREBASE_SERVICE_ACCOUNT_JSON", "")
     admin_key: str = os.getenv("ADMIN_KEY", "")

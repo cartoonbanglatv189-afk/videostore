@@ -26,6 +26,8 @@ async def save_settings(payload: dict) -> dict:
         data["ads_limit"] = int(payload["ads_limit"] or 0)
     if "monetag_id" in payload:
         data["monetag_id"] = str(payload["monetag_id"] or "")
+    if "telegram_channel" in payload:
+        data["telegram_channel"] = str(payload["telegram_channel"] or "")
     if data:
         await update_data("settings", data)
     return {"ok": is_admin_mode(), "saved": data}

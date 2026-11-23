@@ -1,12 +1,16 @@
 from __future__ import annotations
 
+import asyncio
+import logging
 import time
 from typing import Any
 
 from fastapi import APIRouter, Depends
 
+from ..config import get_settings
 from ..firebase_client import delete_data, is_admin_mode, push_data, read_data
 from ..security import require_admin_key
+from ..services import telegram
 
 router = APIRouter(prefix="/videos", tags=["videos"])
 
@@ -29,9 +33,24 @@ async def create_video(payload: dict) -> dict:
         "created_at": int(time.time() * 1000),
     }
     if is_admin_mode():
-        await push_data("videos", video)
-        return {"ok": True, "data": video}
+        key = await push_data("videos", video)
+        if key:
+            asyncio.create_task(_notify_new_video(video))
+        return {"ok": True, "id": key, "data": video}
     return {"ok": False, "reason": "firebase-admin-not-configured"}
+
+
+async def _notify_new_video(video: dict) -> None:
+    try:
+        cfg = get_settings()
+        if not cfg.telegram_auto_notify.startswith("1") or not telegram.bot_enabled():
+            return
+        settings = (await read_data("settings")) or {}
+        web_app_url = str(settings.get("bot_app_link") or "")
+        text = f"🆕 <b>নতুন ভিডিও!</b>\n🎬 {video.get('name', '')}\n\nএখনই দেখুন 🔥"
+        await telegram.broadcast(text, web_app_url)
+    except Exception as exc:
+        logging.warning("new-video notify failed: %s", exc)
 
 
 @router.delete("/{video_id}", dependencies=[Depends(require_admin_key)])

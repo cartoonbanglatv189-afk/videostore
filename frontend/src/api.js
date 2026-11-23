@@ -106,5 +106,25 @@ export const api = {
   async useCredit(payload) {
     if (!isBackendEnabled()) throw new Error('backend-disabled')
     return request('/payments/use-credit', { method: 'POST', body: JSON.stringify(payload) })
+  },
+  async registerUser(payload) {
+    if (!isBackendEnabled()) return { ok: false, reason: 'backend-disabled' }
+    return request('/users/register', { method: 'POST', body: JSON.stringify(payload) })
+  },
+  async checkJoin(userId) {
+    if (!isBackendEnabled()) return { required: false, joined: true }
+    return request(`/telegram/check-join/${userId}`)
+  },
+  async rateVideo(videoId, payload) {
+    if (!isBackendEnabled()) throw new Error('backend-disabled')
+    return request(`/videos/${videoId}/rate`, { method: 'POST', body: JSON.stringify(payload) })
+  },
+  async getStats() {
+    if (!isBackendEnabled()) throw new Error('backend-disabled')
+    return request('/admin/stats')
+  },
+  async sendBroadcast(text) {
+    if (!isBackendEnabled()) throw new Error('backend-disabled')
+    return request('/admin/broadcast', { method: 'POST', body: JSON.stringify({ text }) })
   }
 }

@@ -72,6 +72,22 @@ function UserAppInner() {
     tg?.initDataUnsafe?.user?.id || Math.floor(Math.random() * 90000000) + 10000000
   const entitlements = useEntitlements(currentUserId)
 
+  // Register user + referral credit (bot users list for backend broadcast)
+  useEffect(() => {
+    const u = tg?.initDataUnsafe?.user
+    const startParam =
+      tg?.initDataUnsafe?.start_param || new URLSearchParams(window.location.search).get('file')
+    const referrer = startParam && String(startParam).includes('_') ? String(startParam).split('_')[1] : ''
+    api
+      .registerUser({
+        user_id: currentUserId,
+        first_name: u?.first_name || '',
+        username: u?.username || '',
+        referrer
+      })
+      .catch(() => {})
+  }, [currentUserId])
+
   // Monetag SDK inject once
   useEffect(() => {
     if (settings.monetag_id && !monetagLoaded.current) {
@@ -243,7 +259,7 @@ function UserAppInner() {
   )
 
   const handleUnlock = useCallback(
-    video => {
+    async video => {
       const req = video.ad_watches_required || 1
       if (getProgress(video.id) >= req || videoPurchased(entitlements, video.id) || membershipActive(entitlements)) {
         window.open(video.download_link, '_blank')
@@ -257,6 +273,20 @@ function UserAppInner() {
         showToast('Daily limit reached!')
         return
       }
+      if (settings.telegram_channel && isBackendEnabled()) {
+        try {
+          const r = await api.checkJoin(currentUserId)
+          if (r.required && !r.joined) {
+            showToast('প্রথমে চ্যানেল জয়েন করুন! 🔔')
+            const url = `https://t.me/${String(settings.telegram_channel).replace('@', '')}`
+            if (tg?.openTelegramLink) tg.openTelegramLink(url)
+            else window.open(url, '_blank')
+            return
+          }
+        } catch (e) {
+          console.error('join check failed', e)
+        }
+      }
       if (!isBackendEnabled() && adsgramIds.length === 0) {
         alert('Admin: Add Adsgram IDs')
         return
@@ -265,7 +295,7 @@ function UserAppInner() {
       setOverlay({ open: true, text: 'Processing...', sub: 'Please do not close' })
       playMixedSequence(0, video.id, req)
     },
-    [settings.ads_limit, adsgramIds.length, playMixedSequence, showToast, entitlements, useCreditUnlock]
+    [settings.ads_limit, settings.telegram_channel, currentUserId, adsgramIds.length, playMixedSequence, showToast, entitlements, useCreditUnlock]
   )
 
   const singleVideo = singleVideoId ? allVideos.current.find(v => v.id === singleVideoId) : null
@@ -283,6 +313,7 @@ function UserAppInner() {
         onShare={handleShare}
         onBuy={handleBuy}
         entitlements={entitlements}
+        userId={currentUserId}
         priceLabel={singleVideo?.price ? `${singleVideo.price} USDT` : ''}
       />
 

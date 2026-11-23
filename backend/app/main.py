@@ -9,7 +9,7 @@ from fastapi.responses import JSONResponse
 
 from .config import get_settings
 from .firebase_client import init_firebase, is_admin_mode
-from .routers import ads, filters, links, packages, payments, settings, videos
+from .routers import ads, engagement, filters, links, packages, payments, settings, stats, videos
 
 logging.basicConfig(level=logging.INFO)
 
@@ -30,6 +30,8 @@ app.include_router(ads.router)
 app.include_router(settings.router)
 app.include_router(packages.router)
 app.include_router(payments.router)
+app.include_router(engagement.router)
+app.include_router(stats.router)
 
 
 @app.on_event("startup")
