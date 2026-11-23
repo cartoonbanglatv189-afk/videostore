@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useFirebaseList } from '../../hooks/useFirebase'
 import useEntitlements from '../../hooks/useEntitlements'
 import { hasCredits, membershipActive } from '../../utils/entitlements'
@@ -10,6 +10,22 @@ export default function PremiumSection({ userId }) {
   const packages = useFirebaseList('packages')
   const entitlements = useEntitlements(userId)
   const [buying, setBuying] = useState(null)
+  const [nowTs, setNowTs] = useState(Date.now())
+
+  useEffect(() => {
+    const t = setInterval(() => setNowTs(Date.now()), 60000)
+    return () => clearInterval(t)
+  }, [])
+
+  const fmtCountdown = ms => {
+    const sec = Math.floor(ms / 1000)
+    const d = Math.floor(sec / 86400)
+    const h = Math.floor((sec % 86400) / 3600)
+    const m = Math.floor((sec % 3600) / 60)
+    if (d > 0) return `${d} দিন ${h} ঘণ্টা`
+    if (h > 0) return `${h} ঘণ্টা ${m} মিনিট`
+    return `${m} মিনিট`
+  }
 
   const active = packages.filter(p => p.active !== false)
   const credits = hasCredits(entitlements)
@@ -48,10 +64,37 @@ export default function PremiumSection({ userId }) {
         )}
         {active.map(pkg => (
           <div key={pkg._fbKey} className="card package-card">
+            {(() => {
+              const saleActive = pkg.sale_until && nowTs <= Number(pkg.sale_until) && (pkg.sale_price || pkg.sale_bkash_price)
+              return saleActive ? (
+                <div className="sale-banner">
+                  ⚡ ফ্ল্যাশ সেল! ⏳ {fmtCountdown(Number(pkg.sale_until) - nowTs)} বাকি
+                </div>
+              ) : null
+            })()}
             <div className="package-head">
               <span className="package-name">{pkg.name}</span>
               <span className="package-price">
-                {pkg.price ? `${pkg.price} USDT` : ''} {pkg.bkash_price ? `/ ${pkg.bkash_price}৳` : ''}
+                {(() => {
+                  const saleActive = pkg.sale_until && nowTs <= Number(pkg.sale_until) && (pkg.sale_price || pkg.sale_bkash_price)
+                  const orig = (
+                    <>
+                      {pkg.price ? <s style={{ color: '#6b7280', fontSize: 11 }}>{pkg.price} USDT</s> : ''}{' '}
+                      {pkg.bkash_price ? <s style={{ color: '#6b7280', fontSize: 11 }}>{pkg.bkash_price}৳</s> : ''}{' '}
+                    </>
+                  )
+                  const sale = (
+                    <>
+                      {pkg.sale_price ? <b style={{ color: '#10b981' }}>{pkg.sale_price} USDT</b> : ''}{' '}
+                      {pkg.sale_bkash_price ? <b style={{ color: '#10b981' }}>{pkg.sale_bkash_price}৳</b> : ''}
+                    </>
+                  )
+                  return saleActive ? (
+                    <>{orig}{sale}</>
+                  ) : (
+                    <>{pkg.price ? `${pkg.price} USDT` : ''} {pkg.bkash_price ? `/ ${pkg.bkash_price}৳` : ''}</>
+                  )
+                })()}
               </span>
             </div>
             {pkg.description && <p className="package-desc">{pkg.description}</p>}

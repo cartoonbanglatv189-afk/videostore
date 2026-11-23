@@ -15,6 +15,9 @@ export default function PackageSection() {
   const [videoCount, setVideoCount] = useState('')
   const [durationDays, setDurationDays] = useState('')
   const [benefits, setBenefits] = useState('')
+  const [salePrice, setSalePrice] = useState('')
+  const [saleBkash, setSaleBkash] = useState('')
+  const [saleUntil, setSaleUntil] = useState('')
 
   const addPackage = async () => {
     if (!name || !price) {
@@ -29,6 +32,9 @@ export default function PackageSection() {
       video_count: parseInt(videoCount) || 999999,
       duration_days: parseInt(durationDays) || 0,
       benefits: benefits.split(',').map(b => b.trim()).filter(Boolean),
+      sale_price: parseFloat(salePrice) || 0,
+      sale_bkash_price: parseFloat(saleBkash) || 0,
+      sale_until: saleUntil ? new Date(saleUntil).getTime() : 0,
       active: true
     }
     await writeWithFallback('packages', { ...payload, created_at: Date.now() }, api.createPackage, payload)
@@ -39,6 +45,9 @@ export default function PackageSection() {
     setVideoCount('')
     setDurationDays('')
     setBenefits('')
+    setSalePrice('')
+    setSaleBkash('')
+    setSaleUntil('')
     showToast('Package Added!')
   }
 
@@ -70,6 +79,18 @@ export default function PackageSection() {
       </div>
       <label className="help-text">Benefits (কমা দিয়ে আলাদা করুন)</label>
       <input type="text" value={benefits} onChange={e => setBenefits(e.target.value)} placeholder="সব ভিডিও আনলক, Ad-free, VIP সাপোর্ট" />
+      <div style={{ display: 'flex', gap: 10 }}>
+        <div style={{ flex: 1 }}>
+          <label className="help-text">⚡ সেল দাম USDT (0 = নেই)</label>
+          <input type="number" step="0.01" value={salePrice} onChange={e => setSalePrice(e.target.value)} placeholder="3" />
+        </div>
+        <div style={{ flex: 1 }}>
+          <label className="help-text">⚡ সেল দাম ৳ (0 = নেই)</label>
+          <input type="number" value={saleBkash} onChange={e => setSaleBkash(e.target.value)} placeholder="300" />
+        </div>
+      </div>
+      <label className="help-text">⚡ সেল শেষ হবে (datetime-local → ফ্ল্যাশ সেল টাইমার)</label>
+      <input type="datetime-local" value={saleUntil} onChange={e => setSaleUntil(e.target.value)} />
       <button className="action-btn" onClick={addPackage}>
            ADD PACKAGE
       </button>
@@ -81,6 +102,12 @@ export default function PackageSection() {
               <div style={{ fontSize: 11, color: '#9ca3af' }}>
                 {p.price} USDT | {p.video_count === 999999 ? 'Unlimited' : p.video_count} videos | {p.duration_days || 0} days
               </div>
+              {p.sale_until && Date.now() <= Number(p.sale_until) && (p.sale_price || p.sale_bkash_price) ? (
+                <div style={{ fontSize: 11, color: '#10b981' }}>
+                  ⚡ সেল চলছে: {p.sale_price ? `${p.sale_price} USDT ` : ''}{p.sale_bkash_price ? `${p.sale_bkash_price}৳ ` : ''}
+                  (হবে {new Date(Number(p.sale_until)).toLocaleString()})
+                </div>
+              ) : null}
             </div>
             <button className="del-btn" onClick={() => confirmDelete('packages', api.deletePackage, p._fbKey)}>
               X

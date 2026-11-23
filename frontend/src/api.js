@@ -126,5 +126,9 @@ export const api = {
   async sendBroadcast(text) {
     if (!isBackendEnabled()) throw new Error('backend-disabled')
     return request('/admin/broadcast', { method: 'POST', body: JSON.stringify({ text }) })
+  },
+  async commentVideo(videoId, payload) {
+    if (!isBackendEnabled()) throw new Error('backend-disabled')
+    return request(`/videos/${videoId}/comment`, { method: 'POST', body: JSON.stringify(payload) })
   }
 }

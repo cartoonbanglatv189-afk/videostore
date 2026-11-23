@@ -65,6 +65,20 @@ function UserAppInner() {
 
   const [activeNav, setActiveNav] = useState('homeSec')
   const [singleVideoId, setSingleVideoId] = useState(null)
+  const [dismissedNoticeKey, setDismissedNoticeKey] = useState(
+    () => localStorage.getItem('vz_notice_dismissed') || ''
+  )
+  const notices = useFirebaseList('notices')
+  const activeNotice = useMemo(() => {
+    const list = notices.filter(
+      n => n && (n.text || n.message) && n.active !== false && n.on !== false && n._fbKey !== dismissedNoticeKey
+    )
+    return list.length ? list[list.length - 1] : null
+  }, [notices, dismissedNoticeKey])
+  const dismissNotice = useCallback(key => {
+    setDismissedNoticeKey(key)
+    localStorage.setItem('vz_notice_dismissed', key)
+  }, [])
   const [purchase, setPurchase] = useState(null)
   const [overlay, setOverlay] = useState({ open: false, text: 'Processing...', sub: 'Please do not close' })
   const monetagLoaded = useRef(false)
@@ -339,6 +353,18 @@ function UserAppInner() {
           </h1>
           <div className="subtitle">Exclusive Premium Video</div>
         </div>
+
+        {activeNotice && (
+          <div className="notice-banner">
+            <span className="notice-text">
+              📢 {activeNotice.title ? `${activeNotice.title}: ` : ''}
+              {activeNotice.text || activeNotice.message}
+            </span>
+            <button className="notice-close" onClick={() => dismissNotice(activeNotice._fbKey)}>
+              ✕
+            </button>
+          </div>
+        )}
 
         {activeNav === 'homeSec' && (
           <HomeSection

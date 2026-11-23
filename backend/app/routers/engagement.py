@@ -89,3 +89,24 @@ async def rate_video(video_id: str, payload: dict) -> dict:
     values = [r.get("stars", 0) for r in ratings.values() if isinstance(r, dict)]
     avg = round(sum(values) / len(values), 1) if values else 0
     return {"ok": True, "avg": avg, "count": len(values)}
+
+
+@router.post("/videos/{video_id}/comment")
+async def add_comment(video_id: str, payload: dict) -> dict:
+    user_id = str(payload.get("user_id") or "").strip()
+    text = str(payload.get("text") or "").strip()
+    if not user_id or not video_id:
+        return {"ok": False, "reason": "invalid"}
+    if len(text) > 300:
+        return {"ok": False, "reason": "too-long"}
+    safe = text.replace("<", "&lt;").replace(">", "&gt;").replace("onerror", "")
+    await push_data(
+        f"comments/{video_id}",
+        {
+            "user_id": user_id,
+            "name": str(payload.get("first_name") or "user")[:24].replace("<", "&lt;"),
+            "text": safe,
+            "ts": int(time.time() * 1000),
+        },
+    )
+    return {"ok": True}

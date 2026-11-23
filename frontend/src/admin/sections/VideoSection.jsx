@@ -15,6 +15,8 @@ export default function VideoSection() {
   const [cat, setCat] = useState('all')
   const [req, setReq] = useState(1)
   const [price, setPrice] = useState('')
+  const [publishAt, setPublishAt] = useState('')
+  const purchases = useFirebaseObject('purchases') || {}
 
   const uploadVideo = async () => {
     if (!title || !image || !link) {
@@ -30,15 +32,17 @@ export default function VideoSection() {
         category: cat,
         ad_watches_required: parseInt(req) || 1,
         price: parseFloat(price) || 0,
+        publish_at: publishAt ? new Date(publishAt).getTime() : 0,
         created_at: Date.now()
       },
       api.createVideo,
-      { name: title, image_url: image, download_link: link, category: cat, ad_watches_required: parseInt(req) || 1, price: parseFloat(price) || 0 }
+      { name: title, image_url: image, download_link: link, category: cat, ad_watches_required: parseInt(req) || 1, price: parseFloat(price) || 0, publish_at: publishAt ? new Date(publishAt).getTime() : 0 }
     )
     setTitle('')
     setImage('')
     setLink('')
     setPrice('')
+    setPublishAt('')
     showToast('Done!')
   }
 
@@ -63,19 +67,34 @@ export default function VideoSection() {
       </div>
       <label className="help-text">এই ভিডিওর নিজস্ব দাম (USDT) — খালি রাখলে default price ব্যবহার হবে</label>
       <input type="number" step="0.01" value={price} onChange={e => setPrice(e.target.value)} placeholder="Per-video price (USDT)" />
+      <label className="help-text">📅 নির্দিষ্ট সময়ে অটো-publish (খালি = এখনই দেখাবে)</label>
+      <input type="datetime-local" value={publishAt} onChange={e => setPublishAt(e.target.value)} />
       <button className="action-btn" onClick={uploadVideo}>
         PUBLISH VIDEO
       </button>
       <div style={{ marginTop: 20 }}>
-        {[...videos].reverse().map(v => (
-          <div key={v._fbKey} className="list-item">
-            <img src={v.image_url} width="30" alt="" />
-            <span style={{ flex: 1 }}>{v.name}{v.price ? ` — ${v.price} USDT` : ''}</span>
-            <button className="del-btn" onClick={() => confirmDelete('videos', api.deleteVideo, v._fbKey)}>
-              X
-            </button>
-          </div>
-        ))}
+        {[...videos].reverse().map(v => {
+          const bought = Object.values(purchases).filter(
+            p => p && p.status === 'approved' && (p.video_id === v._fbKey || p.video_id === v.id)
+          ).length
+          return (
+            <div key={v._fbKey} className="list-item">
+              <img src={v.image_url} width="30" alt="" />
+              <div style={{ flex: 1 }}>
+                <span>{v.name}{v.price ? ` — ${v.price} USDT` : ''}</span>
+                <div style={{ fontSize: 11, color: '#9ca3af' }}>
+                  👁️ {v.view_count || 0} | 💳 {bought} কেনা |{' '}
+                  {v.publish_at && Date.now() < Number(v.publish_at)
+                    ? `📅 দেখাবে ${new Date(Number(v.publish_at)).toLocaleString()}`
+                    : '✅ প্রকাশিত'}
+                </div>
+              </div>
+              <button className="del-btn" onClick={() => confirmDelete('videos', api.deleteVideo, v._fbKey)}>
+                X
+              </button>
+            </div>
+          )
+        })}
       </div>
     </>
   )

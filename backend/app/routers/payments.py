@@ -14,6 +14,12 @@ from ..services.entitlements import apply_purchase, entitlement_path, use_credit
 router = APIRouter(prefix="/payments", tags=["payments"])
 
 
+def _sale_active(pkg: dict, now_ms: int) -> bool:
+    until = int(pkg.get("sale_until") or 0)
+    has_price = float(pkg.get("sale_price") or 0) or float(pkg.get("sale_bkash_price") or 0)
+    return bool(until and now_ms <= until and has_price)
+
+
 async def _build_purchase(payload: dict, method: str) -> dict:
     user_id = str(payload.get("user_id") or "")
     if not user_id:
@@ -36,7 +42,15 @@ async def _build_purchase(payload: dict, method: str) -> dict:
         if not pkg:
             raise HTTPException(status_code=404, detail="Package not found")
         purchase["package_name"] = pkg.get("name")
-        purchase["amount"] = float(pkg.get("price", 0)) if method == "binance" else float(pkg.get("bkash_price", 0) or pkg.get("price", 0))
+        on_sale = _sale_active(pkg, now)
+        if method == "binance":
+            sale_usdt = float(pkg.get("sale_price") or 0)
+            purchase["amount"] = sale_usdt if (on_sale and sale_usdt) else float(pkg.get("price", 0))
+        else:
+            sale_bdt = float(pkg.get("sale_bkash_price") or 0)
+            base = float(pkg.get("bkash_price", 0) or pkg.get("price", 0))
+            purchase["amount"] = sale_bdt if (on_sale and sale_bdt) else base
+        purchase["on_sale"] = on_sale
         purchase["currency"] = "USDT" if method == "binance" else "BDT"
         purchase["duration_days"] = int(pkg.get("duration_days", 0) or 0)
         purchase["video_count"] = int(pkg.get("video_count", 0) or 0)

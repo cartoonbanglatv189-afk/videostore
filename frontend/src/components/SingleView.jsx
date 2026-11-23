@@ -2,12 +2,16 @@ import { useEffect, useState } from 'react'
 import VideoCard from './VideoCard'
 import { hasCredits, membershipActive, videoPurchased } from '../utils/entitlements'
 import { useFirebaseList } from '../hooks/useFirebase'
-import { api } from '../api'
+import { api, isBackendEnabled } from '../api'
+import { getDb } from '../firebase'
 
 export default function SingleView({ video, onClose, onUnlock, onLike, onShare, onBuy, entitlements = null, priceLabel = '', userId }) {
   const [active, setActive] = useState(false)
   const ratings = useFirebaseList(video ? `ratings/${video.id}` : '__none__')
+  const comments = useFirebaseList(video ? `comments/${video.id}` : '__none__')
   const [myStars, setMyStars] = useState(0)
+  const [cText, setCText] = useState('')
+  const [sending, setSending] = useState(false)
 
   useEffect(() => {
     if (video) {
@@ -84,6 +88,55 @@ export default function SingleView({ video, onClose, onUnlock, onLike, onShare, 
             <div className="pay-guide-line">👑 চাইলে <b>প্রিমিয়াম প্যাকেজ</b> নিন — সব ভিডিও + নতুন সব ভিডিওতে মেম্বার সুবিধা (নিচের 👑 প্রিমিয়াম tab)।</div>
           </>
         )}
+      </div>
+
+      <div className="comments-box">
+        <div className="comments-title">💬 কমেন্ট ({comments.length})</div>
+        <div className="comments-list">
+          {[...comments].reverse().map(c => (
+            <div key={c._fbKey} className="comment-item">
+              <b>{c.name || 'user'}</b>
+              <span>{c.text}</span>
+            </div>
+          ))}
+          {comments.length === 0 && <div className="comment-item muted">এখনো কোনো কমেন্ট নেই — প্রথম কমেন্টটি আপনিই দিন!</div>}
+        </div>
+        <div className="comment-form">
+          <input
+            type="text"
+            value={cText}
+            onChange={e => setCText(e.target.value)}
+            placeholder="কমেন্ট লিখুন..."
+            maxLength={300}
+          />
+          <button
+            disabled={sending || !cText.trim()}
+            onClick={async () => {
+              const text = cText.trim()
+              if (!text) return
+              setSending(true)
+              const u = window.Telegram?.WebApp?.initDataUnsafe?.user
+              const payload = { user_id: userId, text, first_name: u?.first_name || 'user' }
+              try {
+                if (isBackendEnabled()) {
+                  await api.commentVideo(video.id, payload)
+                } else {
+                  const db = await getDb()
+                  if (db) {
+                    const { push, ref } = await import('firebase/database')
+                    await push(ref(db, `comments/${video.id}`), { ...payload, ts: Date.now() })
+                  }
+                }
+                setCText('')
+              } catch (e) {
+                console.error('comment failed', e)
+              }
+              setSending(false)
+            }}
+          >
+            <i className="fas fa-paper-plane" />
+          </button>
+        </div>
       </div>
     </div>
   )
