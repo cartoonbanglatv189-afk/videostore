@@ -43,7 +43,7 @@ export default function SingleView({ video, onClose, onUnlock, onLike, onShare, 
         onLike={onLike}
         onShare={onShare}
         onBuy={onBuy}
-        entitled={entitled}
+        entitled={member || purchased}
         priceLabel={priceLabel}
         inSingleView
       />

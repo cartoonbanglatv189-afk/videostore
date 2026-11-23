@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { ref, update } from 'firebase/database'
 import { getDb } from '../../firebase'
 import { useFirebaseObject } from '../../hooks/useFirebase'
-import { api } from '../../api'
+import { api, isBackendEnabled } from '../../api'
 import { useToast } from '../../context/ToastContext'
 
 export default function SettingsSection() {
