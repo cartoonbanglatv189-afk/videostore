@@ -8,9 +8,29 @@ import httpx
 import firebase_admin
 from firebase_admin import credentials, db
 
-from .config import get_settings
+from .config import get_settings, set_detected_db_url
 
 _initialized = False
+
+
+RTDB_URL_CANDIDATES = [
+    "https://{p}-default-rtdb.firebaseio.com",
+    "https://{p}-default-rtdb.asia-southeast1.firebasedatabase.app",
+    "https://{p}-default-rtdb.europe-west1.firebasedatabase.app",
+]
+
+
+def probe_db_url(project_id: str) -> str:
+    for tpl in RTDB_URL_CANDIDATES:
+        url = tpl.format(p=project_id)
+        try:
+            resp = httpx.get(f"{url}/.json", timeout=8)
+            if resp.status_code != 404:
+                logging.info("Auto-detected Firebase DB URL: %s", url)
+                return url
+        except Exception as exc:
+            logging.warning("Probing %s failed: %s", url, exc)
+    return ""
 
 
 def init_firebase() -> None:
@@ -18,6 +38,10 @@ def init_firebase() -> None:
     if _initialized:
         return
     settings = get_settings()
+    if not settings.firebase_db_url and settings.service_account_info:
+        project_id = settings.service_account_info.get("project_id")
+        if project_id:
+            set_detected_db_url(probe_db_url(project_id))
     if not settings.resolved_db_url:
         raise RuntimeError("Firebase config missing: set FIREBASE_SERVICE_ACCOUNT_JSON (or FIREBASE_DB_URL)")
     cred_info = settings.service_account_info

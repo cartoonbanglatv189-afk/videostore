@@ -7,6 +7,13 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+_detected_db_url = {"url": ""}
+
+
+def set_detected_db_url(url: str) -> None:
+    if url:
+        _detected_db_url["url"] = url.rstrip("/")
+
 
 def _env_list(name: str, default: str = "") -> list[str]:
     raw = os.getenv(name, default)
@@ -42,6 +49,8 @@ class Settings:
     def resolved_db_url(self) -> str:
         if self.firebase_db_url:
             return self.firebase_db_url
+        if _detected_db_url["url"]:
+            return _detected_db_url["url"]
         info = self.service_account_info
         if info and info.get("project_id"):
             base = f"https://{info['project_id']}-default-rtdb.firebaseio.com"
