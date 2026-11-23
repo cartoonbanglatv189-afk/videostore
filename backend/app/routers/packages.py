@@ -35,7 +35,7 @@ async def create_package(payload: dict) -> dict:
 
 @router.put("/{package_id}", dependencies=[Depends(require_admin_key)])
 async def edit_package(package_id: str, payload: dict) -> dict:
-    update_data(f"packages/{package_id}", payload)
+    await update_data(f"packages/{package_id}", payload)
     return {"ok": True}
 
 

@@ -27,5 +27,5 @@ async def save_settings(payload: dict) -> dict:
     if "monetag_id" in payload:
         data["monetag_id"] = str(payload["monetag_id"] or "")
     if data:
-        update_data("settings", data)
+        await update_data("settings", data)
     return {"ok": is_admin_mode(), "saved": data}

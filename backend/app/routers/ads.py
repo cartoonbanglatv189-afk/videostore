@@ -18,7 +18,7 @@ async def get_ads_config() -> Any:
 @router.put("/monetag", dependencies=[Depends(require_admin_key)])
 async def save_monetag(payload: dict) -> dict:
     mid = str(payload.get("monetag_id") or "")
-    update_data("settings", {"monetag_id": mid})
+    await update_data("settings", {"monetag_id": mid})
     return {"ok": is_admin_mode(), "monetag_id": mid}
 
 
@@ -31,7 +31,7 @@ async def list_interstitial_ids() -> Any:
 async def add_interstitial_id(payload: dict) -> dict:
     value = str(payload.get("id") or "")
     if is_admin_mode():
-        push_data("ads_config/interstitial_ids", value)
+        await push_data("ads_config/interstitial_ids", value)
         return {"ok": True}
     return {"ok": False, "reason": "firebase-admin-not-configured"}
 
@@ -51,7 +51,7 @@ async def list_banners() -> Any:
 async def add_banner(payload: dict) -> dict:
     html = str(payload.get("html") or "")
     if is_admin_mode():
-        push_data("ads_config/banners", html)
+        await push_data("ads_config/banners", html)
         return {"ok": True}
     return {"ok": False, "reason": "firebase-admin-not-configured"}
 

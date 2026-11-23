@@ -19,7 +19,7 @@ async def list_filters() -> Any:
 async def create_filter(payload: dict) -> dict:
     f = {"id": payload.get("id"), "name": payload.get("name")}
     if is_admin_mode():
-        push_data("filters", f)
+        await push_data("filters", f)
         return {"ok": True, "data": f}
     return {"ok": False, "reason": "firebase-admin-not-configured"}
 

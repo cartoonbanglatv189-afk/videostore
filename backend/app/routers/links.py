@@ -19,7 +19,7 @@ async def list_links() -> Any:
 async def create_link(payload: dict) -> dict:
     l = {"title": payload.get("title"), "url": payload.get("url")}
     if is_admin_mode():
-        push_data("links", l)
+        await push_data("links", l)
         return {"ok": True, "data": l}
     return {"ok": False, "reason": "firebase-admin-not-configured"}
 

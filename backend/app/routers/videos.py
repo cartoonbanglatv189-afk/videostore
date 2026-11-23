@@ -29,7 +29,7 @@ async def create_video(payload: dict) -> dict:
         "created_at": int(time.time() * 1000),
     }
     if is_admin_mode():
-        push_data("videos", video)
+        await push_data("videos", video)
         return {"ok": True, "data": video}
     return {"ok": False, "reason": "firebase-admin-not-configured"}
 
