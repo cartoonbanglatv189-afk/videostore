@@ -19,9 +19,9 @@ export default function PurchaseModal({ mode, target, userId, onClose, onSuccess
 
   const amount =
     mode === 'package'
-      ? target.price
-      : (target.price ?? payConfig.video_price) || payConfig.video_price || 0
-  const manualAmount = mode === 'package' ? (target.bkash_price || target.price) : amount
+      ? target?.price
+      : (target?.price ?? payConfig.video_price) || payConfig.video_price || 0
+  const manualAmount = mode === 'package' ? (target?.bkash_price || target?.price) : amount
 
   useEffect(() => {
     if (purchase && purchase.status === 'approved') {
@@ -42,7 +42,7 @@ export default function PurchaseModal({ mode, target, userId, onClose, onSuccess
     }
   }
 
-  const itemLabel = mode === 'package' ? target.name : target.name
+  const itemLabel = target?.name
 
   async function payWithBinance() {
     if (!isBackendEnabled()) {
