@@ -56,10 +56,9 @@ function UserAppInner() {
   const [purchase, setPurchase] = useState(null)
   const [overlay, setOverlay] = useState({ open: false, text: 'Processing...', sub: 'Please do not close' })
   const monetagLoaded = useRef(false)
-  const entitlements = useEntitlements(currentUserId)
-
   const currentUserId =
     tg?.initDataUnsafe?.user?.id || Math.floor(Math.random() * 90000000) + 10000000
+  const entitlements = useEntitlements(currentUserId)
 
   // Monetag SDK inject once
   useEffect(() => {
