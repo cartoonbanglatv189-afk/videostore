@@ -2,7 +2,7 @@ import { initializeApp } from 'firebase/app'
 import { getDatabase } from 'firebase/database'
 
 const ENV = import.meta.env
-const CACHE_KEY = 'vz_firebase_cfg'
+const CACHE_KEY = 'vz_firebase_cfg_v2'
 
 function normalizeKeys(obj) {
   const out = {}
