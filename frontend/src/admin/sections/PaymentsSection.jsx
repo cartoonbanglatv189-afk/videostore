@@ -26,6 +26,8 @@ export default function PaymentsSection() {
   const [mobiles, setMobiles] = useState([])
   const [mType, setMType] = useState('bKash')
   const [mNum, setMNum] = useState('')
+  const [payIds, setPayIds] = useState([])
+  const [payIdInput, setPayIdInput] = useState('')
 
   useEffect(() => {
     if (config) {
@@ -40,6 +42,8 @@ export default function PaymentsSection() {
       setWallets(Array.isArray(raw) ? raw : Object.values(raw || {}))
       const mraw = config.mobile_wallets
       setMobiles(Array.isArray(mraw) ? mraw : Object.values(mraw || {}))
+      const praw = config.binance_pay_ids
+      setPayIds(Array.isArray(praw) ? praw : Object.values(praw || {}))
     }
   }, [config])
 
@@ -87,6 +91,28 @@ export default function PaymentsSection() {
 
   const removeMobileWallet = i => setMobiles(mobiles.filter((_, idx) => idx !== i))
 
+  const addPayId = () => {
+    const id = payIdInput.trim()
+    if (!id) {
+      showToast('Binance Pay ID / UID লিখুন')
+      return
+    }
+    if (payIds.some(p => p.id === id)) {
+      showToast('এই ID আগেই যোগ করা আছে')
+      return
+    }
+    setPayIds([...payIds, { id, label: '', on: true }])
+    setPayIdInput('')
+  }
+
+  const togglePayId = i => {
+    const next = [...payIds]
+    next[i] = { ...next[i], on: next[i].on === false }
+    setPayIds(next)
+  }
+
+  const removePayId = i => setPayIds(payIds.filter((_, idx) => idx !== i))
+
   const saveConfig = async () => {
     const payload = {
       binance_api_key: bKey || undefined,
@@ -99,7 +125,8 @@ export default function PaymentsSection() {
       manual_enabled: manualOn,
       crypto_enabled: cryptoOn,
       crypto_wallets: wallets,
-      mobile_wallets: mobiles
+      mobile_wallets: mobiles,
+      binance_pay_ids: payIds
     }
     if (isBackendEnabled()) {
       try {
@@ -145,7 +172,28 @@ export default function PaymentsSection() {
         <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 13, color: '#ddd', marginBottom: 10 }}>
           <input type="checkbox" checked={binanceOn} onChange={e => setBinanceOn(e.target.checked)} style={{ width: 'auto' }} /> চালু রাখুন
         </label>
-        <label className="help-text">Binance Pay ID (অটো পেমেন্ট রিসিভ আইডি — ইউজারকে দেখানো হবে)</label>
+        <label className="help-text">Binance Pay ID — একাধিক যোগ করা যাবে (ইউজার এটা দিয়ে USDT পাঠাবে)</label>
+        {payIds.length > 0 && (
+          <div style={{ marginBottom: 10 }}>
+            {payIds.map((p, i) => (
+              <div key={i} className="crypto-wallet-row" style={{ marginBottom: 6, cursor: 'default' }}>
+                <span className="crypto-net" style={{ background: 'rgba(245, 158, 11, 0.15)', color: '#fbbf24' }}>PAY ID</span>
+                <span className="crypto-addr" style={{ fontSize: 13, fontWeight: 700, color: '#fff' }}>{p.id}</span>
+                <span style={{ display: 'flex', gap: 4 }}>
+                  <button className="del-btn" style={{ background: p.on === false ? '#6b7280' : '#10b981', padding: '3px 7px' }} onClick={() => togglePayId(i)}>
+                    {p.on === false ? 'OFF' : 'ON'}
+                  </button>
+                  <button className="del-btn" style={{ padding: '3px 7px' }} onClick={() => removePayId(i)}>✕</button>
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+        <input type="text" value={payIdInput} onChange={e => setPayIdInput(e.target.value)} placeholder="Binance Pay ID / UID (যেমন: 123456789)" />
+        <button className="action-btn" style={{ padding: 10, marginBottom: 10 }} onClick={addPayId}>
+          + ID যোগ করুন
+        </button>
+        <label className="help-text">পুরনো একক Pay ID (legacy)</label>
         <input type="text" value={bPayId} onChange={e => setBPayId(e.target.value)} placeholder="যেমন: 123456789" />
       </div>
 
@@ -240,7 +288,7 @@ export default function PaymentsSection() {
             <div style={{ flex: 1, fontSize: 12 }}>
               <b>{p.package_name || p.video_name || 'Item'}</b> — {p.amount} {p.currency}
               <div style={{ color: '#9ca3af' }}>
-                User: {p.user_id} | {p.method === 'manual' ? 'bKash/Manual' : p.method === 'crypto' ? `Crypto (${p.crypto_network || '-'})` : 'Binance'}
+                User: {p.user_id} | {p.method === 'manual' ? 'bKash/Manual' : p.method === 'crypto' ? `Crypto (${p.crypto_network || '-'})` : p.method === 'binance_id' ? 'Binance ID' : 'Binance'}
                 {p.transaction_ref ? ` | TXID: ${p.transaction_ref.slice(0, 20)}` : ''}
               </div>
               <div style={{ color: p.status === 'approved' ? '#10b981' : p.status === 'rejected' ? '#ef4444' : '#f59e0b', fontWeight: 700 }}>

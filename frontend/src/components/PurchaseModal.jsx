@@ -36,6 +36,13 @@ export default function PurchaseModal({ mode, target, userId, onClose, onSuccess
     if (active.length) return active
     return payConfig.manual_phone ? [{ type: 'bKash', number: payConfig.manual_phone, on: true }] : []
   })()
+  const binanceIds = (() => {
+    const raw = payConfig.binance_pay_ids
+    const list = Array.isArray(raw) ? raw : Object.values(raw || {})
+    const active = list.filter(w => w && w.id && w.on !== false)
+    if (active.length) return active
+    return payConfig.binance_pay_id ? [{ id: payConfig.binance_pay_id, on: true }] : []
+  })()
 
   useEffect(() => {
     if (purchase && purchase.status === 'approved') {
@@ -88,6 +95,31 @@ export default function PurchaseModal({ mode, target, userId, onClose, onSuccess
           /* keep polling */
         }
       }, 4000)
+    } catch (e) {
+      setError('সার্ভারে সংযোগ করা যায়নি')
+    }
+  }
+
+  async function payWithBinanceId() {
+    if (!isBackendEnabled()) {
+      setError('Backend চালু থাকতে হবে')
+      return
+    }
+    if (!txnRef.trim()) {
+      setError('Transfer ID লিখুন')
+      return
+    }
+    setError('')
+    try {
+      const ref0 =
+        mode === 'package' ? { user_id: userId, package_key: target._fbKey } : { user_id: userId, video_id: target._fbKey || target.id }
+      const res = await api.binanceIdSubmit({ ...ref0, transfer_id: txnRef.trim() })
+      if (!res.ok) {
+        setError('Submit হয়নি — আবার চেষ্টা করুন')
+        return
+      }
+      setPurchaseId(res.purchase_id)
+      setStep('manual-waiting')
     } catch (e) {
       setError('সার্ভারে সংযোগ করা যায়নি')
     }
@@ -200,11 +232,60 @@ export default function PurchaseModal({ mode, target, userId, onClose, onSuccess
                 <i className="fas fa-coins" /> Crypto — TRC20/BEP20 (Auto Verify)
               </button>
             )}
+            {binanceIds.length > 0 && (
+              <button className="pay-method-btn crypto" style={{ background: 'linear-gradient(135deg, #d97706, #f59e0b)' }} onClick={() => { setError(''); setStep('binance-id') }}>
+                <i className="fas fa-id-badge" /> Binance ID দিয়ে পাঠান (USDT)
+              </button>
+            )}
             {payConfig.manual_enabled !== false && (
               <button className="pay-method-btn manual" onClick={() => { setError(''); setStep('manual') }}>
                 <i className="fas fa-mobile-screen" /> bKash / ম্যানুয়াল (অ্যাডমিন ভেরিফাই)
               </button>
             )}
+          </>
+        )}
+
+        {step === 'binance-id' && (
+          <>
+            <div style={{ fontSize: 22, fontWeight: 700, color: '#fbbf24', marginBottom: 12 }}>
+              পরিমাণ: {amount} USDT
+            </div>
+            <div className="crypto-wallet-list">
+              {binanceIds.map((p, i) => (
+                <div key={i} className="crypto-wallet-row" style={{ cursor: 'default' }}>
+                  <span className="crypto-net" style={{ background: 'rgba(245, 158, 11, 0.15)', color: '#fbbf24' }}>PAY ID</span>
+                  <span className="crypto-addr" style={{ fontSize: 13, fontWeight: 700, color: '#fff' }}>{p.id}</span>
+                  <button
+                    className="copy-btn"
+                    style={{ margin: 0 }}
+                    onClick={() => {
+                      navigator.clipboard?.writeText(p.id)
+                      setCopied(p.id)
+                      setTimeout(() => setCopied(''), 1500)
+                    }}
+                  >
+                    {copied === p.id ? '✔' : <i className="far fa-copy" />}
+                  </button>
+                </div>
+              ))}
+            </div>
+            <div style={{ fontSize: 12, color: '#9ca3af', marginBottom: 8 }}>
+              Binance-এ এই Pay ID-তে <b>{amount} USDT</b> পাঠান, তারপর Transfer/TXID নিচে লিখুন। অ্যাডমিন ভেরিফাই করলেই আনলক হবে।
+            </div>
+            <input
+              type="text"
+              value={txnRef}
+              onChange={e => setTxnRef(e.target.value)}
+              placeholder="Binance Transfer ID / TXID"
+              className="modal-input"
+            />
+            {error && <p style={{ color: '#ef4444', fontSize: 13 }}>{error}</p>}
+            <button className="pay-method-btn" onClick={payWithBinanceId} disabled={!txnRef.trim()}>
+              <i className="fas fa-check" /> পেমেন্ট করেছি, সাবমিট করুন
+            </button>
+            <button className="modal-close" style={{ marginTop: 8, width: '100%' }} onClick={() => { setStep('method'); setTxnRef('') }}>
+              ← ফিরে যান
+            </button>
           </>
         )}
 
