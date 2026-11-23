@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { onValue, ref } from 'firebase/database'
-import { db } from '../firebase'
+import { getDb } from '../firebase'
 
 function toList(val) {
   if (!val) return []
@@ -18,12 +18,20 @@ export function useFirebaseList(path) {
   const [items, setItems] = useState([])
 
   useEffect(() => {
-    const unsub = onValue(
-      ref(db, path),
-      snapshot => setItems(toList(snapshot.val())),
-      err => console.error('Firebase listener error', path, err)
-    )
-    return () => unsub()
+    let cancelled = false
+    let unsub = null
+    getDb().then(db => {
+      if (cancelled || !db) return
+      unsub = onValue(
+        ref(db, path),
+        snapshot => setItems(toList(snapshot.val())),
+        err => console.error('Firebase listener error', path, err)
+      )
+    })
+    return () => {
+      cancelled = true
+      if (unsub) unsub()
+    }
   }, [path])
 
   return items
@@ -33,12 +41,20 @@ export function useFirebaseObject(path) {
   const [obj, setObj] = useState(null)
 
   useEffect(() => {
-    const unsub = onValue(
-      ref(db, path),
-      snapshot => setObj(snapshot.val()),
-      err => console.error('Firebase listener error', path, err)
-    )
-    return () => unsub()
+    let cancelled = false
+    let unsub = null
+    getDb().then(db => {
+      if (cancelled || !db) return
+      unsub = onValue(
+        ref(db, path),
+        snapshot => setObj(snapshot.val()),
+        err => console.error('Firebase listener error', path, err)
+      )
+    })
+    return () => {
+      cancelled = true
+      if (unsub) unsub()
+    }
   }, [path])
 
   return obj

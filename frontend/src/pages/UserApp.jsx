@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { runTransaction, ref } from 'firebase/database'
-import { db } from '../firebase'
+import { getDb } from '../firebase'
 import { useFirebaseList, useFirebaseObject } from '../hooks/useFirebase'
 import { isBackendEnabled } from '../api'
 import { ToastProvider, useToast } from '../context/ToastContext'
@@ -117,8 +117,10 @@ function UserAppInner() {
     return p ? `${p} USDT` : ''
   }
 
-  const incrementViewCount = useCallback(videoId => {
+  const incrementViewCount = useCallback(async videoId => {
     if (hasViewedEvent(videoId)) return
+    const db = await getDb()
+    if (!db) return
     const vidRef = ref(db, 'videos/' + videoId + '/view_count')
     runTransaction(vidRef, current => (current || 0) + 1)
       .then(() => markViewedEvent(videoId))
@@ -213,6 +215,8 @@ function UserAppInner() {
           return
         }
         const { ref: fbRef, update: fbUpdate } = await import('firebase/database')
+        const db = await getDb()
+        if (!db) throw new Error('Firebase unavailable')
         await fbUpdate(fbRef(db, `user_entitlements/${currentUserId}`), {
           video_unlock_credits: credits - 1,
           [`videos_unlocked/${video.id}`]: true

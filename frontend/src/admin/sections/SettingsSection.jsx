@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { ref, update } from 'firebase/database'
-import { db } from '../../firebase'
+import { getDb } from '../../firebase'
 import { useFirebaseObject } from '../../hooks/useFirebase'
 import { api } from '../../api'
 import { useToast } from '../../context/ToastContext'
@@ -36,7 +36,8 @@ export default function SettingsSection() {
         console.error('Backend save failed, falling back', e)
       }
     }
-    await update(ref(db, 'settings'), payload)
+    const db = await getDb()
+    if (db) await update(ref(db, 'settings'), payload)
     showToast('Settings Saved')
   }
 

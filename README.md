@@ -148,12 +148,13 @@ cp .env.example .env
 uvicorn app.main:app --reload --port 8000
 ```
 
-`.env`:
+`.env` (বা Render Environment Variables):
 ```
-FIREBASE_DB_URL=https://<your-db>.firebaseio.com
-FIREBASE_SERVICE_ACCOUNT=/abs/path/serviceAccount.json
+FIREBASE_SERVICE_ACCOUNT_JSON={"type": "service_account", "project_id": "...", ...}   #পুরো JSON এক লাইনে
 ADMIN_KEY=super-secret-admin-key
 CORS_ORIGINS=http://localhost:5173
+# (সুপারিশকৃত) Console → Web app → Config এর পুরো JSON:
+# FIREBASE_WEB_CONFIG={"apiKey":"...","authDomain":"...","databaseURL":"...","projectId":"...","appId":"..."}
 ```
 
 ### 3) Frontend
@@ -165,22 +166,17 @@ npm install
 npm run dev
 ```
 
-`.env`:
+`.env` (Firebase config লাগবে না — backend থেকে অটো আসে):
 ```
-VITE_FIREBASE_API_KEY=...
-VITE_FIREBASE_AUTH_DOMAIN=...
-VITE_FIREBASE_DB_URL=...
-VITE_FIREBASE_PROJECT_ID=...
-VITE_FIREBASE_STORAGE_BUCKET=...
-VITE_FIREBASE_MESSAGING_SENDER_ID=...
-VITE_FIREBASE_APP_ID=...
 VITE_BACKEND_URL=http://localhost:8000
 VITE_ADMIN_KEY=super-secret-admin-key
 ```
 
+> Frontend চালু হতে backend এর `GET /firebase-config` থেকে Firebase config fetch করে (localStorage এ cache হয়)। চাইলে `VITE_FIREBASE_CONFIG` fallback হিসেবে দেওয়া যায়।
+
 > `VITE_BACKEND_URL` খালি থাকলে admin panel সরাসরি Firebase এ write করবে (আগের behavior), তাই কোনো ফিউচার ভাঙবে না।
 
 ## Deployment টিপস
-- Frontend: Vercel / Netlify / GitHub Pages (env vars সাথে দিন)
-- Backend: Railway / Render / Fly.io (service account JSON mount করে দিন)
+- **Vercel (frontend)** — মাত্র ২টা env: `VITE_BACKEND_URL`, `VITE_ADMIN_KEY` (Firebase কিছুই লাগবে না)
+- **Render (backend)** — env: `FIREBASE_SERVICE_ACCOUNT_JSON`, `ADMIN_KEY`, (সুপারিশকৃত) `FIREBASE_WEB_CONFIG`, (ঐচ্ছিক) `CORS_ORIGINS`
 - Telegram Bot: BotFather এ `/newapp` বা Menu button এ frontend URL দিন।

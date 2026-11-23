@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { ref, update } from 'firebase/database'
-import { db } from '../../firebase'
+import { getDb } from '../../firebase'
 import { useFirebaseList, useFirebaseObject } from '../../hooks/useFirebase'
 import { api, isBackendEnabled } from '../../api'
 import { confirmDelete, writeWithFallback } from './shared'
@@ -27,6 +27,11 @@ export default function AdsSection() {
       } catch (e) {
         console.error('Backend save failed, falling back', e)
       }
+    }
+    const db = await getDb()
+    if (!db) {
+      showToast('Firebase unavailable!')
+      return
     }
     await update(ref(db, 'settings'), { monetag_id: monetagId })
     showToast('Monetag ID Saved!')

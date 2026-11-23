@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 from functools import lru_cache
 
@@ -19,6 +20,7 @@ def get_settings() -> "Settings":
 
 class Settings:
     firebase_db_url: str = os.getenv("FIREBASE_DB_URL", "").rstrip("/")
+    firebase_web_config: str = os.getenv("FIREBASE_WEB_CONFIG", "")
     firebase_service_account_path: str = os.getenv("FIREBASE_SERVICE_ACCOUNT", "")
     firebase_service_account_json: str = os.getenv("FIREBASE_SERVICE_ACCOUNT_JSON", "")
     admin_key: str = os.getenv("ADMIN_KEY", "")
@@ -42,5 +44,28 @@ class Settings:
             return self.firebase_db_url
         info = self.service_account_info
         if info and info.get("project_id"):
-            return f"https://{info['project_id']}-default-rtdb.firebaseio.com"
+            base = f"https://{info['project_id']}-default-rtdb.firebaseio.com"
+            region = os.getenv("FIREBASE_DB_REGION", "").strip()
+            if region:
+                base = f"https://{info['project_id']}-default-rtdb.{region}.firebasedatabase.app"
+            return base
         return ""
+
+    @property
+    def web_config(self) -> dict:
+        if self.firebase_web_config:
+            try:
+                parsed = json.loads(self.firebase_web_config)
+                if isinstance(parsed, dict) and parsed:
+                    return parsed
+            except json.JSONDecodeError:
+                logging.warning("FIREBASE_WEB_CONFIG is not valid JSON, using fallback")
+        cfg: dict = {}
+        if self.resolved_db_url:
+            cfg["databaseURL"] = self.resolved_db_url
+        info = self.service_account_info
+        if info and info.get("project_id"):
+            project_id = info["project_id"]
+            cfg["projectId"] = project_id
+            cfg.setdefault("authDomain", f"{project_id}.firebaseapp.com")
+        return cfg

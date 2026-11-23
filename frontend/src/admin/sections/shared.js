@@ -1,5 +1,5 @@
-import { push, ref, remove, update, set } from 'firebase/database'
-import { db } from '../../firebase'
+import { push, ref, remove, update, set, get } from 'firebase/database'
+import { getDb } from '../../firebase'
 import { api, isBackendEnabled } from '../../api'
 
 export async function confirmDelete(path, apiDelete, id) {
@@ -12,6 +12,8 @@ export async function confirmDelete(path, apiDelete, id) {
       console.error('Backend delete failed, falling back to direct write', e)
     }
   }
+  const db = await getDb()
+  if (!db) return
   remove(ref(db, path + '/' + id))
 }
 
@@ -24,17 +26,20 @@ export async function writeWithFallback(path, value, apiCall, payload) {
       console.error('Backend write failed, falling back to direct write', e)
     }
   }
+  const db = await getDb()
+  if (!db) return null
   return push(ref(db, path), value)
 }
 
-export { update, set, ref, db }
+export { update, set, ref, get }
 
 export async function applyPurchaseClientSide(purchase) {
   const DAY_MS = 86400000
-  const ent = purchase.user_id ? { } : null
+  const ent = purchase.user_id ? {} : null
   if (!ent) return
   const path = 'user_entitlements/' + purchase.user_id
-  const { get } = await import('firebase/database')
+  const db = await getDb()
+  if (!db) return
   const snap = await get(ref(db, path))
   const current = snap.val() || {}
   const updates = {}

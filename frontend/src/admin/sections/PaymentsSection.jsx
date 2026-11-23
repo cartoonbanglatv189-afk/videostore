@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { ref, update } from 'firebase/database'
-import { db } from '../../firebase'
+import { getDb } from '../../firebase'
 import { useFirebaseList, useFirebaseObject } from '../../hooks/useFirebase'
 import { api, isBackendEnabled } from '../../api'
 import { useToast } from '../../context/ToastContext'
@@ -49,7 +49,8 @@ export default function PaymentsSection() {
       }
     }
     const clean = Object.fromEntries(Object.entries({ ...payload, ...(!bKey ? {} : { binance_api_key: bKey }), ...(!bSecret ? {} : { binance_api_secret: bSecret }) }).filter(([k, v]) => k !== 'video_price' || v !== undefined))
-    await update(ref(db, 'payments_config'), clean)
+    const db = await getDb()
+    if (db) await update(ref(db, 'payments_config'), clean)
     showToast('Payment Config Saved')
   }
 
@@ -65,7 +66,8 @@ export default function PaymentsSection() {
         console.error('backend decide failed, fallback', e)
       }
     }
-    await update(ref(db, `purchases/${p._fbKey}`), { status: decision === 'approve' ? 'approved' : 'rejected', verified_at: Date.now() })
+    const db = await getDb()
+    if (db) await update(ref(db, `purchases/${p._fbKey}`), { status: decision === 'approve' ? 'approved' : 'rejected', verified_at: Date.now() })
     if (decision === 'approve') await applyPurchaseClientSide(p)
     showToast(decision === 'approve' ? 'Approved & Unlocked' : 'Rejected')
   }

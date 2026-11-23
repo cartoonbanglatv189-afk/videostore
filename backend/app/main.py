@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import logging
 
 from fastapi import FastAPI, Response
@@ -49,3 +50,9 @@ async def index() -> dict:
 @app.get("/health")
 async def health() -> dict:
     return {"status": "ok", "firebase_admin": is_admin_mode()}
+
+
+@app.get("/firebase-config")
+async def firebase_config() -> dict:
+    cfg = get_settings().web_config
+    return {"ok": bool(cfg), "config": cfg}

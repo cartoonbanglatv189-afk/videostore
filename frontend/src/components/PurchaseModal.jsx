@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { push, ref } from 'firebase/database'
-import { db } from '../firebase'
+import { getDb } from '../firebase'
 import { api, isBackendEnabled } from '../api'
 import { useFirebaseObject } from '../hooks/useFirebase'
 import { useToast } from '../context/ToastContext'
@@ -94,6 +94,11 @@ export default function PurchaseModal({ mode, target, userId, onClose, onSuccess
       }
     }
     if (!purchase_id) {
+      const db = await getDb()
+      if (!db) {
+        showToast('Firebase unavailable!')
+        return
+      }
       const node = await push(ref(db, 'purchases'), {
         user_id: userId,
         package_key: mode === 'package' ? target._fbKey : null,
