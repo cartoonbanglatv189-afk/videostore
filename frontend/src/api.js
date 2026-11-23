@@ -39,6 +39,14 @@ export const api = {
       return false
     }
   },
+  async cryptoSubmit(payload) {
+    if (!isBackendEnabled()) throw new Error('backend-disabled')
+    return request('/payments/crypto/submit', { method: 'POST', body: JSON.stringify(payload) })
+  },
+  async cryptoCheck(purchaseId) {
+    if (!isBackendEnabled()) throw new Error('backend-disabled')
+    return request(`/payments/crypto/check/${purchaseId}`)
+  },
   async createVideo(payload) {
     if (!isBackendEnabled()) throw new Error('backend-disabled')
     return request('/videos', { method: 'POST', body: JSON.stringify(payload) })

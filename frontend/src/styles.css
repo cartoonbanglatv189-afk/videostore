@@ -124,6 +124,15 @@ body { margin: 0; background: var(--bg-main); color: var(--text-main); font-fami
 .modal-input { width: 100%; padding: 12px; margin: 12px 0; background: #151525; border: 1px solid #444; color: white; border-radius: 8px; box-sizing: border-box; font-family: inherit; }
 .pay-method-btn { width: 100%; padding: 14px; margin-top: 10px; border-radius: 10px; border: none; background: var(--primary-gradient); color: white; font-weight: 700; font-size: 14px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; font-family: inherit; }
 .pay-method-btn.manual { background: #213a56; border: 1px solid #ec4899; }
+.pay-method-btn.crypto { background: linear-gradient(135deg, #059669, #10b981); }
+.pay-method-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.crypto-wallet-list { display: flex; flex-direction: column; gap: 8px; margin: 10px 0; }
+.crypto-wallet-row { display: flex; align-items: center; gap: 8px; background: #151525; border: 1px solid #2d2d44; border-radius: 10px; padding: 10px 12px; color: #e5e7eb; font-size: 12px; cursor: pointer; font-family: inherit; width: 100%; text-align: left; }
+.crypto-wallet-row.active { border-color: #10b981; background: rgba(16, 185, 129, 0.1); }
+.crypto-wallet-row.active i { color: #10b981; }
+.crypto-net { background: rgba(16, 185, 129, 0.15); color: #34d399; font-weight: 800; font-size: 10.5px; padding: 3px 8px; border-radius: 6px; flex-shrink: 0; }
+.crypto-addr { flex: 1; font-size: 11.5px; color: #9ca3af; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.copy-btn { margin-top: 8px; background: rgba(168, 85, 247, 0.15); border: 1px solid rgba(168, 85, 247, 0.5); color: #d8b4fe; padding: 7px 14px; border-radius: 8px; font-size: 12px; font-weight: 700; cursor: pointer; font-family: inherit; }
 .waiting-row { display: flex; align-items: center; gap: 8px; justify-content: center; color: #f59e0b; font-size: 13px; font-weight: 600; margin-top: 14px; }
 .manual-info { background: #213a56; border-radius: 10px; padding: 12px; font-size: 14px; color: #ddd; }
 .list-item.payable { align-items: flex-start; }

@@ -13,11 +13,16 @@ export default function PaymentsSection() {
 
   const [bKey, setBKey] = useState('')
   const [bSecret, setBSecret] = useState('')
+  const [bPayId, setBPayId] = useState('')
   const [mPhone, setMPhone] = useState('')
   const [mInstr, setMInstr] = useState('')
   const [videoPrice, setVideoPrice] = useState(0)
   const [binanceOn, setBinanceOn] = useState(true)
   const [manualOn, setManualOn] = useState(true)
+  const [cryptoOn, setCryptoOn] = useState(true)
+  const [wallets, setWallets] = useState([])
+  const [wNet, setWNet] = useState('TRC20')
+  const [wAddr, setWAddr] = useState('')
 
   useEffect(() => {
     if (config) {
@@ -26,18 +31,47 @@ export default function PaymentsSection() {
       setVideoPrice(config.video_price || 1)
       setBinanceOn(config.binance_enabled !== false)
       setManualOn(config.manual_enabled !== false)
+      setCryptoOn(config.crypto_enabled !== false)
+      setBPayId(config.binance_pay_id || '')
+      const raw = config.crypto_wallets
+      setWallets(Array.isArray(raw) ? raw : Object.values(raw || {}))
     }
   }, [config])
+
+  const addCryptoWallet = () => {
+    const addr = wAddr.trim()
+    if (!addr) {
+      showToast('Wallet address লিখুন')
+      return
+    }
+    if (wallets.some(w => w.address === addr && w.network === wNet)) {
+      showToast('এই wallet আগেই যোগ করা আছে')
+      return
+    }
+    setWallets([...wallets, { network: wNet, address: addr, label: '', on: true }])
+    setWAddr('')
+  }
+
+  const toggleCryptoWallet = i => {
+    const next = [...wallets]
+    next[i] = { ...next[i], on: next[i].on === false }
+    setWallets(next)
+  }
+
+  const removeCryptoWallet = i => setWallets(wallets.filter((_, idx) => idx !== i))
 
   const saveConfig = async () => {
     const payload = {
       binance_api_key: bKey || undefined,
       binance_api_secret: bSecret || undefined,
+      binance_pay_id: bPayId,
       manual_phone: mPhone,
       manual_instructions: mInstr,
       video_price: parseFloat(videoPrice) || 1,
       binance_enabled: binanceOn,
-      manual_enabled: manualOn
+      manual_enabled: manualOn,
+      crypto_enabled: cryptoOn,
+      crypto_wallets: wallets
     }
     if (isBackendEnabled()) {
       try {
@@ -83,6 +117,47 @@ export default function PaymentsSection() {
         <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 13, color: '#ddd', marginBottom: 10 }}>
           <input type="checkbox" checked={binanceOn} onChange={e => setBinanceOn(e.target.checked)} style={{ width: 'auto' }} /> চালু রাখুন
         </label>
+        <label className="help-text">Binance Pay ID (অটো পেমেন্ট রিসিভ আইডি — ইউজারকে দেখানো হবে)</label>
+        <input type="text" value={bPayId} onChange={e => setBPayId(e.target.value)} placeholder="যেমন: 123456789" />
+      </div>
+
+      <div className="ad-card">
+        <h4 style={{ color: '#10b981' }}>🪙 Crypto Wallet — TRC20 / BEP20 (Auto Verify)</h4>
+        <p className="help-text">USDT নিতে চাইলে wallet address যোগ করুন। TRC20 ও BEP20-এ TXID <b>অটো ভেরিফাই</b> হবে।</p>
+        {wallets.length > 0 && (
+          <div style={{ marginBottom: 10 }}>
+            {wallets.map((w, i) => (
+              <div key={i} className="crypto-wallet-row" style={{ marginBottom: 6, cursor: 'default' }}>
+                <span className="crypto-net">{w.network}</span>
+                <span className="crypto-addr" style={{ wordBreak: 'break-all', whiteSpace: 'normal' }}>{w.address}</span>
+                <span style={{ display: 'flex', gap: 4 }}>
+                  <button className={`del-btn ${w.on === false ? '' : ''}`} style={{ background: w.on === false ? '#6b7280' : '#10b981', padding: '3px 7px' }} onClick={() => toggleCryptoWallet(i)} title={w.on === false ? 'চালু করুন' : 'বন্ধ করুন'}>
+                    {w.on === false ? 'OFF' : 'ON'}
+                  </button>
+                  <button className="del-btn" style={{ padding: '3px 7px' }} onClick={() => removeCryptoWallet(i)}>✕</button>
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+        <label className="help-text">নতুন wallet যোগ করুন</label>
+        <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+          <select value={wNet} onChange={e => setWNet(e.target.value)} style={{ flex: 1 }}>
+            <option value="TRC20">TRC20 (Tron — অটো ভেরিফাই)</option>
+            <option value="BEP20">BEP20 (BNB Chain — অটো ভেরিফাই)</option>
+            <option value="ERC20">ERC20 (Ethereum)</option>
+            <option value="SOL">SOL (Solana)</option>
+            <option value="TON">TON</option>
+            <option value="OTHER">Other</option>
+          </select>
+        </div>
+        <input type="text" value={wAddr} onChange={e => setWAddr(e.target.value)} placeholder="USDT Wallet Address" />
+        <button className="action-btn" style={{ padding: 10, marginBottom: 10 }} onClick={addCryptoWallet}>
+          + Wallet যোগ করুন
+        </button>
+        <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 13, color: '#ddd', marginBottom: 10 }}>
+          <input type="checkbox" checked={cryptoOn} onChange={e => setCryptoOn(e.target.checked)} style={{ width: 'auto' }} /> Crypto পেমেন্ট চালু রাখুন
+        </label>
       </div>
 
       <div className="ad-card">
@@ -109,8 +184,8 @@ export default function PaymentsSection() {
             <div style={{ flex: 1, fontSize: 12 }}>
               <b>{p.package_name || p.video_name || 'Item'}</b> — {p.amount} {p.currency}
               <div style={{ color: '#9ca3af' }}>
-                User: {p.user_id} | {p.method === 'manual' ? 'bKash/Manual' : 'Binance'}
-                {p.transaction_ref ? ` | Ref: ${p.transaction_ref}` : ''}
+                User: {p.user_id} | {p.method === 'manual' ? 'bKash/Manual' : p.method === 'crypto' ? `Crypto (${p.crypto_network || '-'})` : 'Binance'}
+                {p.transaction_ref ? ` | TXID: ${p.transaction_ref.slice(0, 20)}` : ''}
               </div>
               <div style={{ color: p.status === 'approved' ? '#10b981' : p.status === 'rejected' ? '#ef4444' : '#f59e0b', fontWeight: 700 }}>
                 {p.status?.toUpperCase()}

@@ -13,6 +13,8 @@ export default function PurchaseModal({ mode, target, userId, onClose, onSuccess
   const [checkoutUrl, setCheckoutUrl] = useState('')
   const [txnRef, setTxnRef] = useState('')
   const [error, setError] = useState('')
+  const [copied, setCopied] = useState('')
+  const [selectedWallet, setSelectedWallet] = useState(null)
   const pollRef = useRef(null)
 
   const purchase = useFirebaseObject(purchaseId ? `purchases/${purchaseId}` : '__none__')
@@ -22,6 +24,11 @@ export default function PurchaseModal({ mode, target, userId, onClose, onSuccess
       ? target?.price
       : (target?.price ?? payConfig.video_price) || payConfig.video_price || 0
   const manualAmount = mode === 'package' ? (target?.bkash_price || target?.price) : amount
+  const cryptoWallets = (() => {
+    const raw = payConfig.crypto_wallets
+    const list = Array.isArray(raw) ? raw : Object.values(raw || {})
+    return list.filter(w => w && w.address && w.on !== false)
+  })()
 
   useEffect(() => {
     if (purchase && purchase.status === 'approved') {
@@ -74,6 +81,43 @@ export default function PurchaseModal({ mode, target, userId, onClose, onSuccess
           /* keep polling */
         }
       }, 4000)
+    } catch (e) {
+      setError('সার্ভারে সংযোগ করা যায়নি')
+    }
+  }
+
+  async function payWithCrypto() {
+    if (!isBackendEnabled()) {
+      setError('Crypto payment-এর জন্য Backend চালু থাকতে হবে')
+      return
+    }
+    if (!selectedWallet) {
+      setError('প্রথমে নেটওয়ার্ক সিলেক্ট করুন')
+      return
+    }
+    if (!txnRef.trim()) {
+      setError('TXID লিখুন')
+      return
+    }
+    setError('')
+    try {
+      const ref0 =
+        mode === 'package' ? { user_id: userId, package_key: target._fbKey } : { user_id: userId, video_id: target._fbKey || target.id }
+      const res = await api.cryptoSubmit({ ...ref0, network: selectedWallet.network, txid: txnRef.trim() })
+      if (!res.ok) {
+        setError('Submit হয়নি — আবার চেষ্টা করুন')
+        return
+      }
+      setPurchaseId(res.purchase_id)
+      setStep('crypto-waiting')
+      pollRef.current = setInterval(async () => {
+        try {
+          const check = await api.cryptoCheck(res.purchase_id)
+          if (check.status === 'approved') cleanup()
+        } catch {
+          /* keep polling */
+        }
+      }, 5000)
     } catch (e) {
       setError('সার্ভারে সংযোগ করা যায়নি')
     }
@@ -144,11 +188,82 @@ export default function PurchaseModal({ mode, target, userId, onClose, onSuccess
                 <i className="fab fa-bitcoin" /> Binance Pay (Auto Verify)
               </button>
             )}
+            {payConfig.crypto_enabled !== false && cryptoWallets.length > 0 && (
+              <button className="pay-method-btn crypto" onClick={() => { setError(''); setStep('crypto') }}>
+                <i className="fas fa-coins" /> Crypto — TRC20/BEP20 (Auto Verify)
+              </button>
+            )}
             {payConfig.manual_enabled !== false && (
               <button className="pay-method-btn manual" onClick={() => { setError(''); setStep('manual') }}>
                 <i className="fas fa-mobile-screen" /> bKash / ম্যানুয়াল (অ্যাডমিন ভেরিফাই)
               </button>
             )}
+          </>
+        )}
+
+        {step === 'crypto' && (
+          <>
+            <div style={{ fontSize: 22, fontWeight: 700, color: '#10b981', marginBottom: 12 }}>
+              পরিমাণ: {amount} USDT
+            </div>
+            <div className="crypto-wallet-list">
+              {cryptoWallets.map((w, i) => (
+                <button
+                  key={i}
+                  className={`crypto-wallet-row ${selectedWallet?.address === w.address ? 'active' : ''}`}
+                  onClick={() => setSelectedWallet(w)}
+                >
+                  <span className="crypto-net">{w.network}</span>
+                  <span className="crypto-addr">{w.address?.slice(0, 10)}...{w.address?.slice(-6)}</span>
+                  <i className={`fas ${selectedWallet?.address === w.address ? 'fa-check-circle' : 'fa-chevron-right'}`} />
+                </button>
+              ))}
+            </div>
+            {selectedWallet && (
+              <div className="manual-info" style={{ margin: '12px 0' }}>
+                <div><b>{selectedWallet.network}</b>-এ ঠিক <b>{amount} USDT</b> পাঠান:</div>
+                <div style={{ wordBreak: 'break-all', marginTop: 6, fontSize: 12 }}>{selectedWallet.address}</div>
+                <button
+                  className="copy-btn"
+                  onClick={() => {
+                    navigator.clipboard?.writeText(selectedWallet.address)
+                    setCopied(selectedWallet.address)
+                    setTimeout(() => setCopied(''), 1500)
+                  }}
+                >
+                  <i className="far fa-copy" /> {copied === selectedWallet.address ? 'Copy হয়েছে!' : 'Address Copy'}
+                </button>
+              </div>
+            )}
+            <input
+              type="text"
+              value={txnRef}
+              onChange={e => setTxnRef(e.target.value)}
+              placeholder="TXID লিখুন (Transaction Hash)"
+              className="modal-input"
+            />
+            {error && <p style={{ color: '#ef4444', fontSize: 13 }}>{error}</p>}
+            <button className="pay-method-btn" onClick={payWithCrypto} disabled={!selectedWallet || !txnRef.trim()}>
+              <i className="fas fa-check" /> পেমেন্ট করেছি, সাবমিট করুন
+            </button>
+            <button className="modal-close" style={{ marginTop: 8, width: '100%' }} onClick={() => { setStep('method'); setTxnRef('') }}>
+              ← ফিরে যান
+            </button>
+          </>
+        )}
+
+        {step === 'crypto-waiting' && (
+          <>
+            <div className="manual-info">
+              <div><b>{selectedWallet?.network}</b> — TXID: {txnRef.slice(0, 14)}...</div>
+              <div style={{ marginTop: 6 }}>পরিমাণ: <b>{amount} USDT</b></div>
+            </div>
+            <div className="waiting-row">
+              <i className="fas fa-circle-notch fa-spin" /> অটো ভেরিফাই চলছে (১–৫ মিনিট)...
+            </div>
+            <button className="modal-close" style={{ width: '100%' }} onClick={onClose}>
+              ঠিক আছে
+            </button>
           </>
         )}
 

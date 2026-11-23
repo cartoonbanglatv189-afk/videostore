@@ -8,10 +8,15 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from ..firebase_client import delete_data, push_data, read_data, update_data
 from ..security import require_admin_key
-from ..services import binance
+from ..services import binance, crypto
 from ..services.entitlements import apply_purchase, entitlement_path, use_credit
 
 router = APIRouter(prefix="/payments", tags=["payments"])
+
+AUTO_VERIFY_NETWORKS = {
+    "TRC20": crypto.verify_trc20,
+    "BEP20": crypto.verify_bep20,
+}
 
 
 def _sale_active(pkg: dict, now_ms: int) -> bool:
@@ -43,7 +48,7 @@ async def _build_purchase(payload: dict, method: str) -> dict:
             raise HTTPException(status_code=404, detail="Package not found")
         purchase["package_name"] = pkg.get("name")
         on_sale = _sale_active(pkg, now)
-        if method == "binance":
+        if method in ("binance", "crypto"):
             sale_usdt = float(pkg.get("sale_price") or 0)
             purchase["amount"] = sale_usdt if (on_sale and sale_usdt) else float(pkg.get("price", 0))
         else:
@@ -51,7 +56,7 @@ async def _build_purchase(payload: dict, method: str) -> dict:
             base = float(pkg.get("bkash_price", 0) or pkg.get("price", 0))
             purchase["amount"] = sale_bdt if (on_sale and sale_bdt) else base
         purchase["on_sale"] = on_sale
-        purchase["currency"] = "USDT" if method == "binance" else "BDT"
+        purchase["currency"] = "USDT" if method in ("binance", "crypto") else "BDT"
         purchase["duration_days"] = int(pkg.get("duration_days", 0) or 0)
         purchase["video_count"] = int(pkg.get("video_count", 0) or 0)
     elif video_id:
@@ -75,12 +80,26 @@ async def get_payment_config() -> Any:
 @router.put("/config", dependencies=[Depends(require_admin_key)])
 async def save_payment_config(payload: dict) -> dict:
     data: dict[str, Any] = {}
-    for key in ("binance_api_key", "binance_api_secret", "manual_phone", "manual_instructions"):
+    for key in ("binance_api_key", "binance_api_secret", "manual_phone", "manual_instructions", "binance_pay_id"):
         if key in payload:
             data[key] = str(payload[key] or "")
-    for key in ("binance_enabled", "manual_enabled"):
+    for key in ("binance_enabled", "manual_enabled", "crypto_enabled"):
         if key in payload:
             data[key] = bool(payload[key])
+    if "crypto_wallets" in payload:
+        wallets = []
+        for w in payload["crypto_wallets"] or []:
+            if not isinstance(w, dict) or not w.get("address"):
+                continue
+            wallets.append(
+                {
+                    "network": str(w.get("network") or "OTHER").upper(),
+                    "address": str(w["address"]).strip(),
+                    "label": str(w.get("label") or ""),
+                    "on": bool(w.get("on", True)),
+                }
+            )
+        data["crypto_wallets"] = wallets
     if "video_price" in payload:
         data["video_price"] = float(payload["video_price"] or 0)
     if data:
@@ -177,6 +196,60 @@ async def reject_manual(purchase_id: str) -> dict:
 async def delete_purchase(purchase_id: str) -> dict:
     await delete_data(f"purchases/{purchase_id}")
     return {"ok": True}
+
+
+@router.post("/crypto/submit")
+async def crypto_submit(payload: dict) -> dict:
+    purchase = await _build_purchase(payload, "crypto")
+    network = str(payload.get("network") or "").strip().upper()
+    txid = str(payload.get("txid") or "").strip()
+    if not network or not txid:
+        raise HTTPException(status_code=400, detail="network and txid required")
+    purchase["crypto_network"] = network
+    purchase["transaction_ref"] = txid
+    purchase_id = await push_data("purchases", purchase)
+    return {"ok": True, "purchase_id": purchase_id, "auto": network in AUTO_VERIFY_NETWORKS}
+
+
+@router.get("/crypto/check/{purchase_id}")
+async def crypto_check(purchase_id: str) -> dict:
+    purchase = await read_data(f"purchases/{purchase_id}")
+    if not purchase:
+        raise HTTPException(status_code=404, detail="Purchase not found")
+    if purchase.get("status") == "approved":
+        return {"ok": True, "status": "approved"}
+
+    network = str(purchase.get("crypto_network") or "").upper()
+    verifier = AUTO_VERIFY_NETWORKS.get(network)
+    if not verifier:
+        return {"ok": True, "status": purchase.get("status") or "pending", "auto": False}
+
+    cfg = (await read_data("payments_config")) or {}
+    wallets = cfg.get("crypto_wallets") or []
+    if isinstance(wallets, dict):
+        wallets = list(wallets.values())
+    wallet = next(
+        (w for w in wallets if isinstance(w, dict) and str(w.get("network", "")).upper() == network),
+        None,
+    )
+    if not wallet:
+        return {"ok": False, "status": purchase.get("status") or "pending", "reason": "wallet-missing"}
+
+    result = await verifier(
+        purchase.get("transaction_ref") or "",
+        wallet.get("address") or "",
+        float(purchase.get("amount") or 0),
+    )
+    if result.get("ok"):
+        now = int(time.time() * 1000)
+        await update_data(
+            f"purchases/{purchase_id}",
+            {"status": "approved", "verified_at": now, "verified_by": f"auto-{network}"},
+        )
+        await apply_purchase({**purchase, "status": "approved"})
+        return {"ok": True, "status": "approved"}
+
+    return {"ok": True, "status": purchase.get("status") or "pending", "reason": result.get("reason")}
 
 
 @router.post("/use-credit")
