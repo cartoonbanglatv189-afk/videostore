@@ -1,11 +1,18 @@
 const BACKEND_URL = (import.meta.env.VITE_BACKEND_URL || '').replace(/\/$/, '')
-const ADMIN_KEY = import.meta.env.VITE_ADMIN_KEY || ''
 
 export const isBackendEnabled = () => Boolean(BACKEND_URL)
 
+export const getAdminKey = () => sessionStorage.getItem('admin_key') || ''
+
+export const setAdminKey = key => {
+  if (key) sessionStorage.setItem('admin_key', key)
+  else sessionStorage.removeItem('admin_key')
+}
+
 function headers() {
   const h = { 'Content-Type': 'application/json' }
-  if (ADMIN_KEY) h['x-admin-key'] = ADMIN_KEY
+  const key = getAdminKey()
+  if (key) h['x-admin-key'] = key
   return h
 }
 
@@ -19,6 +26,19 @@ async function request(path, options = {}) {
 }
 
 export const api = {
+  async verifyKey(key) {
+    if (!isBackendEnabled()) {
+      return key && key === (import.meta.env.VITE_ADMIN_KEY || '')
+    }
+    try {
+      const res = await fetch(`${BACKEND_URL}/admin/verify`, {
+        headers: { 'x-admin-key': key }
+      })
+      return res.ok
+    } catch {
+      return false
+    }
+  },
   async createVideo(payload) {
     if (!isBackendEnabled()) throw new Error('backend-disabled')
     return request('/videos', { method: 'POST', body: JSON.stringify(payload) })

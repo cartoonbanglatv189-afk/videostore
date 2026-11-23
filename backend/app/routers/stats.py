@@ -4,10 +4,18 @@ import time
 
 from fastapi import APIRouter
 
+from fastapi import Depends
+
 from ..firebase_client import read_data
+from ..security import require_admin_key
 from ..services import telegram
 
 router = APIRouter(tags=["stats"])
+
+
+@router.get("/admin/verify", dependencies=[Depends(require_admin_key)])
+async def verify_admin() -> dict:
+    return {"ok": True}
 
 
 @router.get("/admin/stats")
