@@ -29,6 +29,13 @@ export default function PurchaseModal({ mode, target, userId, onClose, onSuccess
     const list = Array.isArray(raw) ? raw : Object.values(raw || {})
     return list.filter(w => w && w.address && w.on !== false)
   })()
+  const mobileWallets = (() => {
+    const raw = payConfig.mobile_wallets
+    const list = Array.isArray(raw) ? raw : Object.values(raw || {})
+    const active = list.filter(w => w && w.number && w.on !== false)
+    if (active.length) return active
+    return payConfig.manual_phone ? [{ type: 'bKash', number: payConfig.manual_phone, on: true }] : []
+  })()
 
   useEffect(() => {
     if (purchase && purchase.status === 'approved') {
@@ -270,12 +277,31 @@ export default function PurchaseModal({ mode, target, userId, onClose, onSuccess
         {step === 'manual' && (
           <>
             <div className="manual-info">
-              <div>
-                <b>Send Money:</b> {payConfig.manual_phone || 'যোগাযোগ করুন'}
-              </div>
-              <div style={{ marginTop: 6 }}>পরিমাণ: <b>{manualAmount} ৳</b></div>
-              {payConfig.manual_instructions && <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 8 }}>{payConfig.manual_instructions}</div>}
+              <div>পরিমাণ: <b>{manualAmount} ৳</b></div>
             </div>
+            <div className="crypto-wallet-list">
+              {mobileWallets.map((w, i) => (
+                <div key={i} className="crypto-wallet-row" style={{ cursor: 'default' }}>
+                  <span className="crypto-net" style={{ background: 'rgba(236, 72, 153, 0.15)', color: '#f472b6' }}>{w.type}</span>
+                  <span className="crypto-addr" style={{ fontSize: 13, fontWeight: 700, color: '#fff' }}>{w.number}</span>
+                  <button
+                    className="copy-btn"
+                    style={{ margin: 0 }}
+                    onClick={() => {
+                      navigator.clipboard?.writeText(w.number)
+                      setCopied(w.number)
+                      setTimeout(() => setCopied(''), 1500)
+                    }}
+                  >
+                    {copied === w.number ? '✔' : <><i className="far fa-copy" /></>}
+                  </button>
+                </div>
+              ))}
+              {mobileWallets.length === 0 && (
+                <div style={{ color: '#9ca3af', fontSize: 12 }}>এখনও কোনো নাম্বার সেট করা হয়েছে না — অ্যাডমিন প্যানেলে যোগ করুন</div>
+              )}
+            </div>
+            {payConfig.manual_instructions && <div style={{ fontSize: 12, color: '#9ca3af', marginBottom: 8 }}>{payConfig.manual_instructions}</div>}
             <input
               type="text"
               value={txnRef}
@@ -314,9 +340,8 @@ export default function PurchaseModal({ mode, target, userId, onClose, onSuccess
         {step === 'manual-waiting' && (
           <>
             <div className="manual-info">
-              <div>
-                <b>Send Money:</b> {payConfig.manual_phone || 'যোগাযোগ করুন'}
-              </div>
+              <div>পরিমাণ: <b>{manualAmount} ৳</b></div>
+              <div style={{ marginTop: 6 }}>পাঠানোর নাম্বার: <b>{mobileWallets[0]?.number || '—'}</b></div>
               {payConfig.manual_instructions && <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 8 }}>{payConfig.manual_instructions}</div>}
             </div>
             <div className="waiting-row">

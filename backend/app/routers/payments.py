@@ -100,6 +100,19 @@ async def save_payment_config(payload: dict) -> dict:
                 }
             )
         data["crypto_wallets"] = wallets
+    if "mobile_wallets" in payload:
+        wallets = []
+        for w in payload["mobile_wallets"] or []:
+            if not isinstance(w, dict) or not w.get("number"):
+                continue
+            wallets.append(
+                {
+                    "type": str(w.get("type") or "bKash"),
+                    "number": str(w["number"]).strip(),
+                    "on": bool(w.get("on", True)),
+                }
+            )
+        data["mobile_wallets"] = wallets
     if "video_price" in payload:
         data["video_price"] = float(payload["video_price"] or 0)
     if data:
