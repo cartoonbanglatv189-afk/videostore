@@ -204,6 +204,16 @@ export default function PaymentsSection() {
         <p className="help-text" style={{ marginBottom: 14 }}>
           Binance ID + Crypto Address এক লিস্টে • bKash/Nagad/Rocket — নিচে সব একসাথে সেট করুন, একটাই Save বাটন।
         </p>
+        {(() => {
+          const ready = !!(config.binance_api_key && config.binance_api_secret)
+          return (
+            <div style={{ padding: '10px 12px', borderRadius: 10, marginBottom: 12, background: ready ? 'rgba(16,185,129,0.12)' : 'rgba(239,68,68,0.12)', border: `1px solid ${ready ? 'rgba(16,185,129,0.5)' : 'rgba(239,68,68,0.5)'}`, fontSize: 12.5, fontWeight: 700, color: ready ? '#34d399' : '#f87171' }}>
+              {ready
+                ? '✅ অটো ভেরিফাই চালু — Binance API Key/Secret সেভ করা আছে'
+                : '🔴 অটো ভেরিফাই বন্ধ — Binance API Key ও API Secret সেভ করা নেই'}
+            </div>
+          )
+        })()}
         <h4 style={{ color: '#ec4899' }}>🚀 Binance Pay (Auto Verify)</h4>
         <label className="help-text">API Key</label>
         <input type="password" value={bKey} onChange={e => setBKey(e.target.value)} placeholder={config.binance_api_key ? '•••• (সেভ করা আছে)' : 'API Key'} />
