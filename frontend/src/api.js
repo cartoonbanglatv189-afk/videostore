@@ -28,16 +28,20 @@ async function request(path, options = {}) {
 export const api = {
   async verifyKey(key) {
     if (!isBackendEnabled()) {
-      return key && key === (import.meta.env.VITE_ADMIN_KEY || '')
+      return key && key === (import.meta.env.VITE_ADMIN_KEY || '') ? 'ok' : 'wrong-key'
     }
+    let res
     try {
-      const res = await fetch(`${BACKEND_URL}/admin/verify`, {
+      res = await fetch(`${BACKEND_URL}/admin/verify`, {
         headers: { 'x-admin-key': key }
       })
-      return res.ok
     } catch {
-      return false
+      return 'backend-down'
     }
+    if (res.ok) return 'ok'
+    if (res.status === 401) return 'wrong-key'
+    if (res.status === 403) return 'admin-key-missing'
+    return 'backend-error'
   },
   async cryptoSubmit(payload) {
     if (!isBackendEnabled()) throw new Error('backend-disabled')
