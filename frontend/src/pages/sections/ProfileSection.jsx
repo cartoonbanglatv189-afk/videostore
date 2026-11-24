@@ -11,6 +11,9 @@ export default function ProfileSection({ userId }) {
   const wallet = useFirebaseObject(userId ? `user_wallets/${userId}` : '__none__') || {}
   const balance = Number(wallet.balance || 0)
   const payConfig = useFirebaseObject('payments_config') || {}
+  const appSettings = useFirebaseObject('settings') || {}
+  const refCfg = useFirebaseObject('referral_config') || {}
+  const myUser = useFirebaseObject(userId ? `bot_users/${userId}` : '__none__') || {}
   const allDeposits = useFirebaseList('deposits')
   const myDeposits = allDeposits.filter(d => String(d.user_id) === String(userId))
 
@@ -23,6 +26,13 @@ export default function ProfileSection({ userId }) {
   const [submitting, setSubmitting] = useState(false)
   const pollRef = useRef(null)
   const [depStatus, setDepStatus] = useState(null)
+
+  const refEnabled = refCfg.enabled !== false && (Number(refCfg.bonus_join || 0) > 0 || Number(refCfg.bonus_purchase || 0) > 0)
+  const refLink = appSettings.bot_app_link
+    ? `${appSettings.bot_app_link}?startapp=ref_${userId}`
+    : `${window.location.origin}${window.location.pathname}?ref=${userId}`
+  const refCount = Number(myUser.referrals || 0)
+  const refEarned = Number(myUser.ref_earned || 0)
 
   const cryptoWallets = (() => {
     const raw = payConfig.crypto_wallets
@@ -186,6 +196,43 @@ export default function ProfileSection({ userId }) {
           {depError && <p style={{ color: '#ef4444', fontSize: 13 }}>{depError}</p>}
           <button className="pay-method-btn" onClick={submitDeposit} disabled={submitting || !depMethod || !depRef.trim() || !(parseFloat(depAmount) > 0)}>
             <i className="fas fa-check" /> পেমেন্ট করেছি, Deposit সাবমিট
+          </button>
+        </div>
+      )}
+
+            {refEnabled && (
+        <div className="ad-card" style={{ marginTop: 18, borderColor: 'rgba(59, 130, 246, 0.4)' }}>
+          <div style={{ fontSize: 15, fontWeight: 700, color: '#60a5fa', marginBottom: 6 }}>
+            🎁 রেফার ইনকাম — বন্ধু আনুন, টাকা জিতুন!
+          </div>
+          <div style={{ fontSize: 12, color: '#9ca3af', marginBottom: 10 }}>
+            {Number(refCfg.bonus_join || 0) > 0 && (
+              <div>✉️ বন্ধু জয়েন করলেই আপনি পাবেন <b style={{ color: '#34d399' }}>{refCfg.bonus_join} USDT</b></div>
+            )}
+            {Number(refCfg.bonus_purchase || 0) > 0 && (
+              <div>💰 বন্ধু পেমেন্ট করলে পাবেন <b style={{ color: '#34d399' }}>{refCfg.bonus_purchase} USDT</b> {String(refCfg.purchase_mode || 'first') === 'first' ? '(প্রথম কেনাকাটায়)' : '(প্রতি কেনাকাটায়)'}</div>
+            )}
+            টাকা সরাসরি আপনার <b>Balance</b>-এ যোগ হবে — দিয়ে যেকোনো ভিডিও/প্যাকেজ কিনতে পারবেন!
+          </div>
+          <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
+            <div style={{ flex: 1, background: 'rgba(59,130,246,0.12)', borderRadius: 10, padding: '8px 10px' }}>
+              <div style={{ fontSize: 11, color: '#9ca3af' }}>👥 Refer করেছেন</div>
+              <div style={{ fontSize: 18, fontWeight: 700, color: '#60a5fa' }}>{refCount} জন</div>
+            </div>
+            <div style={{ flex: 1, background: 'rgba(16,185,129,0.12)', borderRadius: 10, padding: '8px 10px' }}>
+              <div style={{ fontSize: 11, color: '#9ca3af' }}>💵 মোট ইনকাম</div>
+              <div style={{ fontSize: 18, fontWeight: 700, color: '#34d399' }}>{refEarned} USDT</div>
+            </div>
+          </div>
+          <div style={{ wordBreak: 'break-all', fontSize: 12, color: '#cbd5e1', background: 'rgba(0,0,0,0.3)', borderRadius: 8, padding: '8px 10px', marginBottom: 8 }}>
+            {refLink}
+          </div>
+          <button
+            className="pay-method-btn"
+            style={{ background: 'linear-gradient(135deg, #1d4ed8, #3b82f6)' }}
+            onClick={() => copyText(refLink, 'ref')}
+          >
+            <i className="fab fa-telegram-plane" /> {copied === 'ref' ? '✔ Link Copy হয়েছে!' : 'রেফার লিংক Copy করুন'}
           </button>
         </div>
       )}

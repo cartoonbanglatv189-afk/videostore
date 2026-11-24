@@ -10,6 +10,7 @@ from ..firebase_client import delete_data, push_data, read_data, update_data
 from ..security import require_admin_key
 from ..services import binance, crypto
 from ..services.entitlements import apply_purchase, entitlement_path, use_credit
+from .referral import reward_referrer_for_user
 
 router = APIRouter(prefix="/payments", tags=["payments"])
 
@@ -200,6 +201,7 @@ async def binance_check(purchase_id: str) -> dict:
         now = int(time.time() * 1000)
         await update_data(f"purchases/{purchase_id}", {"status": "approved", "verified_at": now})
         await apply_purchase({**purchase, "status": "approved"})
+        await reward_referrer_for_user(str(purchase.get("user_id") or ""), "purchase", purchase_id)
         return {"ok": True, "status": "approved"}
 
     return {"ok": True, "status": purchase.get("status") or "pending", "binance_status": binance_status}
@@ -232,6 +234,7 @@ async def approve_manual(purchase_id: str) -> dict:
     now = int(time.time() * 1000)
     await update_data(f"purchases/{purchase_id}", {"status": "approved", "verified_at": now})
     await apply_purchase({**purchase, "status": "approved"})
+    await reward_referrer_for_user(str(purchase.get("user_id") or ""), "purchase", purchase_id)
     return {"ok": True}
 
 
@@ -296,6 +299,7 @@ async def crypto_check(purchase_id: str) -> dict:
             {"status": "approved", "verified_at": now, "verified_by": f"auto-{network}"},
         )
         await apply_purchase({**purchase, "status": "approved"})
+        await reward_referrer_for_user(str(purchase.get("user_id") or ""), "purchase", purchase_id)
         return {"ok": True, "status": "approved"}
 
     return {"ok": True, "status": purchase.get("status") or "pending", "reason": result.get("reason")}
@@ -338,6 +342,7 @@ async def binance_id_check(purchase_id: str) -> dict:
             {"status": "approved", "verified_at": now, "verified_by": "auto-binance-pay"},
         )
         await apply_purchase({**purchase, "status": "approved"})
+        await reward_referrer_for_user(str(purchase.get("user_id") or ""), "purchase", purchase_id)
         return {"ok": True, "status": "approved"}
 
     return {"ok": True, "status": purchase.get("status") or "pending", "auto": True}
@@ -411,6 +416,7 @@ async def deposit_check(deposit_id: str) -> dict:
             {"status": "approved", "verified_at": now},
         )
         await credit_balance(str(deposit.get("user_id") or ""), required)
+        await reward_referrer_for_user(str(deposit.get("user_id") or ""), "purchase", deposit_id)
         return {"ok": True, "status": "approved", "amount": required}
 
     return {"ok": True, "status": "pending", "reason": reason}
@@ -430,6 +436,7 @@ async def approve_deposit(deposit_id: str) -> dict:
         now = int(time.time() * 1000)
         await update_data(f"deposits/{deposit_id}", {"status": "approved", "verified_at": now})
         await credit_balance(str(deposit.get("user_id") or ""), float(deposit.get("amount") or 0))
+        await reward_referrer_for_user(str(deposit.get("user_id") or ""), "purchase", deposit_id)
     return {"ok": True}
 
 
@@ -460,8 +467,9 @@ async def wallet_pay(payload: dict) -> dict:
     await update_data(f"user_wallets/{user_id}", {"balance": round(balance - amount, 8), "updated_at": int(time.time() * 1000)})
     now = int(time.time() * 1000)
     purchase.update({"status": "approved", "verified_at": now, "verified_by": "wallet"})
-    await push_data("purchases", purchase)
+    purchase_key = await push_data("purchases", purchase)
     await apply_purchase({**purchase, "user_id": user_id, "status": "approved"})
+    await reward_referrer_for_user(user_id, "purchase", purchase_key or "")
     return {"ok": True, "balance": round(balance - amount, 8)}
 
 

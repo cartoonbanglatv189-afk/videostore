@@ -7,6 +7,7 @@ from fastapi import APIRouter
 from ..config import get_settings
 from ..firebase_client import push_data, read_data, update_data
 from ..services import telegram
+from .referral import reward_referrer_for_user
 
 router = APIRouter(tags=["engagement"])
 
@@ -56,6 +57,7 @@ async def register_user(payload: dict) -> dict:
         await update_data(path, {"referred_by": referrer})
         await update_data(f"bot_users/{referrer}", {"referrals": int(((await read_data(f'bot_users/{referrer}')) or {}).get("referrals") or 0) + 1})
         referral_ok = True
+        await reward_referrer_for_user(user_id, "join", context_id=user_id)
         if telegram.bot_enabled():
             await telegram.send_message(
                 referrer,

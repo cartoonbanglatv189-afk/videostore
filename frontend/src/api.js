@@ -171,6 +171,13 @@ export const api = {
     if (!isBackendEnabled()) return { required: false, joined: true }
     return request(`/telegram/check-join/${userId}`)
   },
+  async getReferralConfig() {
+    if (!isBackendEnabled()) return {}
+    return request('/referral/config')
+  },
+  async saveReferralConfig(payload) {
+    return request('/referral/config', { method: 'PUT', body: JSON.stringify(payload) })
+  },
   async rateVideo(videoId, payload) {
     if (!isBackendEnabled()) throw new Error('backend-disabled')
     return request(`/videos/${videoId}/rate`, { method: 'POST', body: JSON.stringify(payload) })

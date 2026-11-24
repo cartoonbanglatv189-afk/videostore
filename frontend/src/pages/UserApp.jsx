@@ -92,7 +92,10 @@ function UserAppInner() {
     const u = tg?.initDataUnsafe?.user
     const startParam =
       tg?.initDataUnsafe?.start_param || new URLSearchParams(window.location.search).get('file')
-    const referrer = startParam && String(startParam).includes('_') ? String(startParam).split('_')[1] : ''
+    const referrer =
+      (startParam && String(startParam).includes('_') ? String(startParam).split('_')[1] : '') ||
+      new URLSearchParams(window.location.search).get('ref') ||
+      ''
     api
       .registerUser({
         user_id: currentUserId,
@@ -123,6 +126,7 @@ function UserAppInner() {
     const startParam = tg?.initDataUnsafe?.start_param || new URLSearchParams(window.location.search).get('file')
     if (!startParam) return
     const videoId = String(startParam).split('_')[0]
+    if (videoId === 'ref') return
     const tryOpen = () => {
       const target = allVideos.current.find(v => v.id === videoId)
       if (target) setSingleVideoId(videoId)
