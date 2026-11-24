@@ -60,6 +60,7 @@ export default function PaymentsSection() {
     }
     setWallets([...wallets, { network: wNet, address: addr, label: '', on: true }])
     setWAddr('')
+    showToast('✅ Wallet যোগ হয়েছে! এখন Save Payment Config চাপুন')
   }
 
   const toggleCryptoWallet = i => {
@@ -82,6 +83,7 @@ export default function PaymentsSection() {
     }
     setMobiles([...mobiles, { type: mType, number: num, on: true }])
     setMNum('')
+    showToast('✅ নাম্বার যোগ হয়েছে! এখন Save Payment Config চাপুন')
   }
 
   const toggleMobileWallet = i => {
@@ -104,6 +106,7 @@ export default function PaymentsSection() {
     }
     setPayIds([...payIds, { id, label: '', on: true }])
     setPayIdInput('')
+    showToast('✅ Binance Pay ID যোগ হয়েছে! এখন Save Payment Config চাপুন')
   }
 
   const togglePayId = i => {
@@ -236,8 +239,9 @@ export default function PaymentsSection() {
         <button className="action-btn" style={{ padding: 10, marginBottom: 10 }} onClick={addPayId}>
           + ID যোগ করুন
         </button>
-        <label className="help-text">পুরনো একক Pay ID (legacy)</label>
-        <input type="text" value={bPayId} onChange={e => setBPayId(e.target.value)} placeholder="যেমন: 123456789" />
+        <p className="help-text" style={{ marginTop: 6, color: '#fbbf24' }}>
+          🔑 শুধু উপরের লিস্টে যোগ করা Pay ID গুলোই ইউজারকে দেখাবে — আলাদা কোনো একক Pay ID ফিল্ড এখন নেই।
+        </p>
       </div>
 
       <div className="gw-sub">
