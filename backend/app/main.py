@@ -15,12 +15,14 @@ logging.basicConfig(level=logging.INFO)
 
 app = FastAPI(title="Viral Zone API", version="1.0.0")
 
+cors_origins = get_settings().cors_origins or ["*"]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=get_settings().cors_origins or ["*"],
-    allow_credentials=True,
+    allow_origins=cors_origins,
+    allow_credentials="*" not in cors_origins,
     allow_methods=["*"],
     allow_headers=["*"],
+    max_age=86400,
 )
 
 app.include_router(videos.router)
