@@ -133,8 +133,10 @@ export default function PaymentsSection() {
         return
       } catch (e) {
         console.error('backend save failed, falling back to direct write', e)
-        if (String(e && e.message).includes('403')) {
-          showToast('⚠️ Admin password ভুল বা Render-এ ADMIN_KEY নেই — সরাসরি Firebase-এ সেভ হচ্ছে')
+        if (String(e && e.message).includes('401')) {
+          showToast('⚠️ অ্যাডমিন পাসওয়ার্ড ভুল — নতুন করে লগইন করুন, তারপর সেভ করুন')
+        } else if (String(e && e.message).includes('403')) {
+          showToast('⚠️ Render-এ ADMIN_KEY সেট নেই — সরাসরি Firebase-এ সেভ হচ্ছে')
         }
       }
     }
