@@ -131,17 +131,29 @@ export default function PaymentsSection() {
     }
     if (isBackendEnabled()) {
       try {
-        await api.savePaymentsConfig(payload)
-        showToast('Payment Config Saved')
+        const res = await api.savePaymentsConfig(payload)
+        showToast(`✅ Saved! (${(res && res.saved && res.saved.length) || 0} field)`)
         return
       } catch (e) {
-        console.error('backend save failed', e)
+        console.error('backend save failed, falling back to direct write', e)
+        if (String(e && e.message).includes('403')) {
+          showToast('⚠️ Admin password ভুল বা Render-এ ADMIN_KEY নেই — সরাসরি Firebase-এ সেভ হচ্ছে')
+        }
       }
     }
-    const clean = Object.fromEntries(Object.entries({ ...payload, ...(!bKey ? {} : { binance_api_key: bKey }), ...(!bSecret ? {} : { binance_api_secret: bSecret }) }).filter(([k, v]) => k !== 'video_price' || v !== undefined))
+    const clean = Object.fromEntries(Object.entries({ ...payload }).filter(([, v]) => v !== undefined))
     const db = await getDb()
-    if (db) await update(ref(db, 'payments_config'), clean)
-    showToast('Payment Config Saved')
+    if (!db) {
+      window.alert('❌ Save failed! Backend ও Firebase — কোনোটাই connected নয়। VITE_BACKEND_URL চেক করুন।')
+      return
+    }
+    try {
+      await update(ref(db, 'payments_config'), clean)
+      showToast('✅ Saved! (সরাসরি Firebase)')
+    } catch (e) {
+      console.error('direct write failed', e)
+      window.alert('❌ Save failed! Firebase Realtime Database Rules-এ write allow করতে হবে')
+    }
   }
 
   const decide = async (p, decision) => {
@@ -191,6 +203,10 @@ export default function PaymentsSection() {
   return (
     <>
       <div className="ad-card">
+        <h4 style={{ color: '#d8b4fe', marginBottom: 4 }}>💳 পেমেন্ট গেটওয়ে সেটআপ (সব একসাথে)</h4>
+        <p className="help-text" style={{ marginBottom: 14 }}>
+          Binance (API + Pay ID) • Crypto Wallet (TRC20/BEP20/ERC20/SOL/TON) • bKash/Nagad/Rocket — নিচে সব একসাথে সেট করুন, একটাই Save বাটন।
+        </p>
         <h4 style={{ color: '#ec4899' }}>🚀 Binance Pay (Auto Verify)</h4>
         <label className="help-text">API Key</label>
         <input type="password" value={bKey} onChange={e => setBKey(e.target.value)} placeholder={config.binance_api_key ? '•••• (সেভ করা আছে)' : 'API Key'} />
@@ -224,7 +240,7 @@ export default function PaymentsSection() {
         <input type="text" value={bPayId} onChange={e => setBPayId(e.target.value)} placeholder="যেমন: 123456789" />
       </div>
 
-      <div className="ad-card">
+      <div className="gw-sub">
         <h4 style={{ color: '#10b981' }}>🪙 Crypto Wallet — TRC20 / BEP20 (Auto Verify)</h4>
         <p className="help-text">USDT নিতে চাইলে wallet address যোগ করুন। TRC20 ও BEP20-এ TXID <b>অটো ভেরিফাই</b> হবে।</p>
         {wallets.length > 0 && (
@@ -263,7 +279,7 @@ export default function PaymentsSection() {
         </label>
       </div>
 
-      <div className="ad-card">
+      <div className="gw-sub">
         <h4 style={{ color: '#a855f7' }}>📱 bKash / Nagad / Rocket — মোবাইল ওয়ালেট (Admin Verify)</h4>
         <p className="help-text">টাকা নিতে চাইলে নাম্বার যোগ করুন — ইউজার পেমেন্ট করার সময় এই নাম্বারগুলোই দেখাবে।</p>
         {mobiles.length > 0 && (
