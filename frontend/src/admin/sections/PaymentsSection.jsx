@@ -22,13 +22,12 @@ export default function PaymentsSection() {
   const [manualOn, setManualOn] = useState(true)
   const [cryptoOn, setCryptoOn] = useState(true)
   const [wallets, setWallets] = useState([])
-  const [wNet, setWNet] = useState('TRC20')
-  const [wAddr, setWAddr] = useState('')
+  const [uniType, setUniType] = useState('BINANCE_ID')
+  const [uniVal, setUniVal] = useState('')
   const [mobiles, setMobiles] = useState([])
   const [mType, setMType] = useState('bKash')
   const [mNum, setMNum] = useState('')
   const [payIds, setPayIds] = useState([])
-  const [payIdInput, setPayIdInput] = useState('')
 
   useEffect(() => {
     if (config) {
@@ -48,19 +47,28 @@ export default function PaymentsSection() {
     }
   }, [config])
 
-  const addCryptoWallet = () => {
-    const addr = wAddr.trim()
-    if (!addr) {
-      showToast('Wallet address লিখুন')
+  const addUnified = () => {
+    const val = uniVal.trim()
+    if (!val) {
+      showToast(uniType === 'BINANCE_ID' ? 'Binance Pay ID লিখুন' : 'Wallet address লিখুন')
       return
     }
-    if (wallets.some(w => w.address === addr && w.network === wNet)) {
-      showToast('এই wallet আগেই যোগ করা আছে')
-      return
+    if (uniType === 'BINANCE_ID') {
+      if (payIds.some(p => p.id === val)) {
+        showToast('এই Pay ID আগেই যোগ করা আছে')
+        return
+      }
+      setPayIds([...payIds, { id: val, label: '', on: true }])
+      showToast('✅ Binance Pay ID যোগ হয়েছে! এখন Save Payment Config চাপুন')
+    } else {
+      if (wallets.some(w => w.address === val && w.network === uniType)) {
+        showToast('এই wallet আগেই যোগ করা আছে')
+        return
+      }
+      setWallets([...wallets, { network: uniType, address: val, label: '', on: true }])
+      showToast('✅ Wallet যোগ হয়েছে! এখন Save Payment Config চাপুন')
     }
-    setWallets([...wallets, { network: wNet, address: addr, label: '', on: true }])
-    setWAddr('')
-    showToast('✅ Wallet যোগ হয়েছে! এখন Save Payment Config চাপুন')
+    setUniVal('')
   }
 
   const toggleCryptoWallet = i => {
@@ -94,20 +102,6 @@ export default function PaymentsSection() {
 
   const removeMobileWallet = i => setMobiles(mobiles.filter((_, idx) => idx !== i))
 
-  const addPayId = () => {
-    const id = payIdInput.trim()
-    if (!id) {
-      showToast('Binance Pay ID / UID লিখুন')
-      return
-    }
-    if (payIds.some(p => p.id === id)) {
-      showToast('এই ID আগেই যোগ করা আছে')
-      return
-    }
-    setPayIds([...payIds, { id, label: '', on: true }])
-    setPayIdInput('')
-    showToast('✅ Binance Pay ID যোগ হয়েছে! এখন Save Payment Config চাপুন')
-  }
 
   const togglePayId = i => {
     const next = [...payIds]
@@ -208,7 +202,7 @@ export default function PaymentsSection() {
       <div className="ad-card">
         <h4 style={{ color: '#d8b4fe', marginBottom: 4 }}>💳 পেমেন্ট গেটওয়ে সেটআপ (সব একসাথে)</h4>
         <p className="help-text" style={{ marginBottom: 14 }}>
-          Binance (API + Pay ID) • Crypto Wallet (TRC20/BEP20/ERC20/SOL/TON) • bKash/Nagad/Rocket — নিচে সব একসাথে সেট করুন, একটাই Save বাটন।
+          Binance ID + Crypto Address এক লিস্টে • bKash/Nagad/Rocket — নিচে সব একসাথে সেট করুন, একটাই Save বাটন।
         </p>
         <h4 style={{ color: '#ec4899' }}>🚀 Binance Pay (Auto Verify)</h4>
         <label className="help-text">API Key</label>
@@ -218,12 +212,13 @@ export default function PaymentsSection() {
         <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 13, color: '#ddd', marginBottom: 10 }}>
           <input type="checkbox" checked={binanceOn} onChange={e => setBinanceOn(e.target.checked)} style={{ width: 'auto' }} /> চালু রাখুন
         </label>
-        <label className="help-text">Binance Pay ID — একাধিক যোগ করা যাবে (ইউজার এটা দিয়ে USDT পাঠাবে)</label>
-        {payIds.length > 0 && (
+
+        <label className="help-text" style={{ marginTop: 6 }}>💱 Binance Pay ID ও Crypto Wallet — সব এক লিস্টে (অ্যাড করলেই নিচে দেখা যাবে)</label>
+        {payIds.length + wallets.length > 0 ? (
           <div style={{ marginBottom: 10 }}>
             {payIds.map((p, i) => (
-              <div key={i} className="crypto-wallet-row" style={{ marginBottom: 6, cursor: 'default' }}>
-                <span className="crypto-net" style={{ background: 'rgba(245, 158, 11, 0.15)', color: '#fbbf24' }}>PAY ID</span>
+              <div key={`pid-${i}`} className="crypto-wallet-row" style={{ marginBottom: 6, cursor: 'default' }}>
+                <span className="crypto-net" style={{ background: 'rgba(245, 158, 11, 0.15)', color: '#fbbf24' }}>BINANCE ID</span>
                 <span className="crypto-addr" style={{ fontSize: 13, fontWeight: 700, color: '#fff' }}>{p.id}</span>
                 <span style={{ display: 'flex', gap: 4 }}>
                   <button className="del-btn" style={{ background: p.on === false ? '#6b7280' : '#10b981', padding: '3px 7px' }} onClick={() => togglePayId(i)}>
@@ -233,28 +228,12 @@ export default function PaymentsSection() {
                 </span>
               </div>
             ))}
-          </div>
-        )}
-        <input type="text" value={payIdInput} onChange={e => setPayIdInput(e.target.value)} placeholder="Binance Pay ID / UID (যেমন: 123456789)" />
-        <button className="action-btn" style={{ padding: 10, marginBottom: 10 }} onClick={addPayId}>
-          + ID যোগ করুন
-        </button>
-        <p className="help-text" style={{ marginTop: 6, color: '#fbbf24' }}>
-          🔑 শুধু উপরের লিস্টে যোগ করা Pay ID গুলোই ইউজারকে দেখাবে — আলাদা কোনো একক Pay ID ফিল্ড এখন নেই।
-        </p>
-      </div>
-
-      <div className="gw-sub">
-        <h4 style={{ color: '#10b981' }}>🪙 Crypto Wallet — TRC20 / BEP20 (Auto Verify)</h4>
-        <p className="help-text">USDT নিতে চাইলে wallet address যোগ করুন। TRC20 ও BEP20-এ TXID <b>অটো ভেরিফাই</b> হবে।</p>
-        {wallets.length > 0 && (
-          <div style={{ marginBottom: 10 }}>
             {wallets.map((w, i) => (
-              <div key={i} className="crypto-wallet-row" style={{ marginBottom: 6, cursor: 'default' }}>
+              <div key={`wl-${i}`} className="crypto-wallet-row" style={{ marginBottom: 6, cursor: 'default' }}>
                 <span className="crypto-net">{w.network}</span>
                 <span className="crypto-addr" style={{ wordBreak: 'break-all', whiteSpace: 'normal' }}>{w.address}</span>
                 <span style={{ display: 'flex', gap: 4 }}>
-                  <button className={`del-btn ${w.on === false ? '' : ''}`} style={{ background: w.on === false ? '#6b7280' : '#10b981', padding: '3px 7px' }} onClick={() => toggleCryptoWallet(i)} title={w.on === false ? 'চালু করুন' : 'বন্ধ করুন'}>
+                  <button className="del-btn" style={{ background: w.on === false ? '#6b7280' : '#10b981', padding: '3px 7px' }} onClick={() => toggleCryptoWallet(i)} title={w.on === false ? 'চালু করুন' : 'বন্ধ করুন'}>
                     {w.on === false ? 'OFF' : 'ON'}
                   </button>
                   <button className="del-btn" style={{ padding: '3px 7px' }} onClick={() => removeCryptoWallet(i)}>✕</button>
@@ -262,10 +241,12 @@ export default function PaymentsSection() {
               </div>
             ))}
           </div>
+        ) : (
+          <p className="help-text" style={{ color: '#6b7280', marginBottom: 8 }}>এখনো কিছু যোগ করা হয়নি — নিচে থেকে Binance ID বা Crypto Address যোগ করুন।</p>
         )}
-        <label className="help-text">নতুন wallet যোগ করুন</label>
         <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
-          <select value={wNet} onChange={e => setWNet(e.target.value)} style={{ flex: 1 }}>
+          <select value={uniType} onChange={e => setUniType(e.target.value)} style={{ flex: 2 }}>
+            <option value="BINANCE_ID">Binance Pay ID / UID</option>
             <option value="TRC20">TRC20 (Tron — অটো ভেরিফাই)</option>
             <option value="BEP20">BEP20 (BNB Chain — অটো ভেরিফাই)</option>
             <option value="ERC20">ERC20 (Ethereum)</option>
@@ -273,14 +254,17 @@ export default function PaymentsSection() {
             <option value="TON">TON</option>
             <option value="OTHER">Other</option>
           </select>
+          <input type="text" value={uniVal} onChange={e => setUniVal(e.target.value)} placeholder={uniType === 'BINANCE_ID' ? 'যেমন: 123456789' : 'USDT Wallet Address'} style={{ flex: 3 }} />
         </div>
-        <input type="text" value={wAddr} onChange={e => setWAddr(e.target.value)} placeholder="USDT Wallet Address" />
-        <button className="action-btn" style={{ padding: 10, marginBottom: 10 }} onClick={addCryptoWallet}>
-          + Wallet যোগ করুন
+        <button className="action-btn" style={{ padding: 10, marginBottom: 10 }} onClick={addUnified}>
+          + যোগ করুন
         </button>
-        <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 13, color: '#ddd', marginBottom: 10 }}>
+        <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 13, color: '#ddd', marginBottom: 6 }}>
           <input type="checkbox" checked={cryptoOn} onChange={e => setCryptoOn(e.target.checked)} style={{ width: 'auto' }} /> Crypto পেমেন্ট চালু রাখুন
         </label>
+        <p className="help-text" style={{ color: '#fbbf24' }}>
+          💸 USDT পাঠানোর নিয়ম: ইউজার Binance ID-তে পাঠাতে পারে অথবা Crypto Address-এ। TRC20/BEP20-এ TXID দিলে অটো ভেরিফাই হবে। এখানে শুধু আপনার যোগ করা ID/Address দেখাবে — কোনো ডেমো ডেটা নেই।
+        </p>
       </div>
 
       <div className="gw-sub">
