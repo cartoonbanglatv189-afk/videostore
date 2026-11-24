@@ -4,7 +4,7 @@ const NUMS = ['১', '২', '৩']
 export default function TutorialSection({ tutorialId }) {
   return (
     <div className="fadeIn">
-      <h3 style={{ color: '#a855f7', marginLeft: 5 }}>🎬 টিউটোরিয়াল</h3>
+      <h3 style={{ color: 'var(--primary)', marginLeft: 5 }}>🎬 টিউটোরিয়াল</h3>
       <div className="info-box">
         <div style={{ width: '100%', aspectRatio: '16/9', background: '#000', borderRadius: 10, marginBottom: 20 }}>
           {tutorialId ? (

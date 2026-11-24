@@ -39,6 +39,11 @@ export default function VideoCard({ video, onUnlock, onLike, onShare, onOpen, on
           }}
           alt={video.name}
         />
+        {priceLabel && (
+          <div className="price-pill">
+            <i className="fas fa-bolt" aria-hidden="true" /> {priceLabel}
+          </div>
+        )}
         <button
           className="heart-btn"
           onClick={e => {
@@ -46,7 +51,7 @@ export default function VideoCard({ video, onUnlock, onLike, onShare, onOpen, on
             onLike && onLike(video.id)
           }}
         >
-          <i className={`${liked ? 'fas' : 'far'} fa-heart`} style={{ color: liked ? '#ec4899' : 'white' }} />
+          <i className={`${liked ? 'fas' : 'far'} fa-heart`} style={{ color: liked ? 'var(--primary)' : 'white' }} />
         </button>
         {isNew && (
           <span className="new-badge">
@@ -71,11 +76,11 @@ export default function VideoCard({ video, onUnlock, onLike, onShare, onOpen, on
           >
             {isUnlocked ? (
               <>
-                <i className="fas fa-download" /> DOWNLOAD
+                <i className="fas fa-download" aria-hidden="true" /> Download
               </>
             ) : (
               <>
-                <i className="fas fa-play" /> UNLOCK ({progress}/{req})
+                <i className="fas fa-play" aria-hidden="true" /> Unlock ({progress}/{req})
               </>
             )}
           </button>

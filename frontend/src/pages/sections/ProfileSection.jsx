@@ -132,7 +132,7 @@ export default function ProfileSection({ userId }) {
         <div className="pb-hint">একবারে বড় অ্যামাউন্ট ডিপোজিট করে রাখতে পারেন — পরে এক ক্লিকে সব কিনবেন!</div>
       </div>
 
-      <h4 style={{ color: '#d8b4fe', margin: '18px 0 8px' }}>⬇️ Deposit করুন (USDT)</h4>
+      <h4 style={{ color: '#fda4af', margin: '18px 0 8px' }}>⬇️ Deposit করুন (USDT)</h4>
 
       {depStatus === 'verifying' ? (
         <div className="manual-info">
@@ -237,7 +237,7 @@ export default function ProfileSection({ userId }) {
         </div>
       )}
 
-      <h4 style={{ color: '#d8b4fe', margin: '18px 0 8px' }}>🧾 Deposit History</h4>
+      <h4 style={{ color: '#fda4af', margin: '18px 0 8px' }}>🧾 Deposit History</h4>
       <div>
         {myDeposits.length === 0 && <p style={{ color: '#666', fontSize: 13 }}>এখনও কোনো deposit নেই</p>}
         {[...myDeposits].reverse().map(d => (

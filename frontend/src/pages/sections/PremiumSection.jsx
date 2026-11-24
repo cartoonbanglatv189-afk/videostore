@@ -41,11 +41,11 @@ export default function PremiumSection({ userId }) {
           ⚠️ মেম্বারশিপ প্রায় শেষ! বাকি {daysLeft} দিন — এখনই নবায়ন করুন 👇
         </div>
       )}
-      <h3 style={{ color: '#a855f7', marginLeft: 5 }}>👑 প্রিমিয়াম প্যাকেজ</h3>
+      <h3 style={{ color: 'var(--primary)', marginLeft: 5 }}>👑 প্রিমিয়াম প্যাকেজ</h3>
 
       <div className="info-box" style={{ display: 'flex', gap: 15, justifyContent: 'space-around' }}>
         <div style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: 20, fontWeight: 700, color: '#ec4899' }}>{credits}</div>
+          <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--primary)' }}>{credits}</div>
           <div style={{ fontSize: 11, color: '#9ca3af' }}>ভিডিও ক্রেডিট</div>
         </div>
         <div style={{ textAlign: 'center' }}>

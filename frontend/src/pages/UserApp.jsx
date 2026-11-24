@@ -355,11 +355,13 @@ function UserAppInner() {
         style={{ display: singleVideo ? 'none' : 'block' }}
       >
         <div className="header">
-          <h1 className="title">
-            {' '}
-            VIRAL ZONE VIDEO<i className="fas fa-fire" style={{ color: '#ec4899' }} />
-          </h1>
-          <div className="subtitle">Exclusive Premium Video</div>
+          <div className="brand-row">
+            <div className="brand-mark"><i className="fas fa-fire" aria-hidden="true" /></div>
+            <div style={{ minWidth: 0 }}>
+              <h1 className="title">Viral Zone Video</h1>
+              <div className="subtitle">এক্সক্লুসিভ প্রিমিয়াম ভিডিও</div>
+            </div>
+          </div>
         </div>
 
         {activeNotice && (

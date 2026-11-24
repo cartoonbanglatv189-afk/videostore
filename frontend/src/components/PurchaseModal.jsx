@@ -252,7 +252,7 @@ export default function PurchaseModal({ mode, target, userId, onClose, onSuccess
             <p style={{ color: '#9ca3af', fontSize: 13 }}>
               {mode === 'package' ? 'প্রিমিয়াম প্যাকেজ' : 'এই ভিডিও'} কিনুন — অ্যাড দেখার দরকার নেই
             </p>
-            <div style={{ fontSize: 22, fontWeight: 700, color: '#a855f7', marginBottom: 15 }}>
+            <div style={{ fontSize: 22, fontWeight: 700, color: 'var(--primary)', marginBottom: 15 }}>
               {manualAmount ? `${manualAmount} ৳` : `${amount} USDT`}
             </div>
             {error && <p style={{ color: '#ef4444', fontSize: 13 }}>{error}</p>}
