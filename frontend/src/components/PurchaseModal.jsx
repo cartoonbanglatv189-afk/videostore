@@ -256,66 +256,85 @@ export default function PurchaseModal({ mode, target, userId, onClose, onSuccess
               {manualAmount ? `${manualAmount} ৳` : `${amount} USDT`}
             </div>
             {error && <p style={{ color: '#ef4444', fontSize: 13 }}>{error}</p>}
-            {isBackendEnabled() && (
-              <button
-                className="pay-method-btn crypto"
-                style={{ background: 'linear-gradient(135deg, #0d9488, #14b8a6)' }}
-                disabled={balance < amount}
-                onClick={payWithBalance}
-              >
-                <i className="fas fa-wallet" /> Balance দিয়ে কিনুন ({balance} USDT)
-              </button>
-            )}
-            <div style={{ fontSize: 12, color: '#6b7280', margin: '10px 0 6px', textAlign: 'center' }}>── পেমেন্ট গেটওয়ে বাছুন ──</div>
-            {payConfig.binance_enabled !== false && (
-              <button className="pay-method-btn" style={{ background: 'linear-gradient(135deg, #1d4ed8, #3b82f6)' }} onClick={() => { setError(''); setGateway('binance') }}>
-                <i className="fab fa-bitcoin" /> Binance
-                <span style={{ display: 'block', fontSize: 11, fontWeight: 400, opacity: 0.85, marginTop: 2 }}>
-                  অটো ভেরিফাই — Pay / ID / Crypto (USDT)
-                </span>
-              </button>
-            )}
-            {payConfig.manual_enabled !== false && (
-              <button className="pay-method-btn manual" onClick={() => { setError(''); setGateway('mobile'); setStep('manual') }}>
-                <i className="fas fa-mobile-screen" /> মোবাইল ওয়ালেট
-                <span style={{ display: 'block', fontSize: 11, fontWeight: 400, opacity: 0.85, marginTop: 2 }}>
-                  bKash / নগদ / রকেট — অ্যাডমিন ভেরিফাই
-                </span>
-              </button>
-            )}
+            <div className="pay-opts">
+              {isBackendEnabled() && (
+                <button className="pay-opt" disabled={balance < amount} onClick={payWithBalance}>
+                  <span className="p-ico balance"><i className="fas fa-wallet" aria-hidden="true" /></span>
+                  <span className="p-body">
+                    <span className="p-title">Balance দিয়ে কিনুন</span>
+                    <span className="p-sub">{balance} USDT {balance < amount ? '— আগে ডিপোজিট করুন' : 'আছে'}</span>
+                  </span>
+                  <i className="fas fa-chevron-right p-check" aria-hidden="true" />
+                </button>
+              )}
+            </div>
+            <div style={{ fontSize: 11, color: '#6b7280', margin: '12px 0 2px', textAlign: 'center' }}>─ পেমেন্ট গেটওয়ে বাছুন ─</div>
+            <div className="pay-opts" style={{ marginTop: 6 }}>
+              {payConfig.binance_enabled !== false && (
+                <button className="pay-opt" onClick={() => { setError(''); setGateway('binance') }}>
+                  <span className="p-ico binance"><i className="fab fa-bitcoin" aria-hidden="true" /></span>
+                  <span className="p-body">
+                    <span className="p-title">Binance</span>
+                    <span className="p-sub">অটো ভেরিফাই — Pay / ID / Crypto (USDT)</span>
+                  </span>
+                  <i className="fas fa-chevron-right p-check" aria-hidden="true" />
+                </button>
+              )}
+              {payConfig.manual_enabled !== false && (
+                <button className="pay-opt" onClick={() => { setError(''); setGateway('mobile'); setStep('manual') }}>
+                  <span className="p-ico mobile"><i className="fas fa-mobile-screen" aria-hidden="true" /></span>
+                  <span className="p-body">
+                    <span className="p-title">মোবাইল ওয়ালেট</span>
+                    <span className="p-sub">bKash / নগদ / রকেট — অ্যাডমিন ভেরিফাই</span>
+                  </span>
+                  <i className="fas fa-chevron-right p-check" aria-hidden="true" />
+                </button>
+              )}
+            </div>
           </>
         )}
 
         {step === 'method' && gateway === 'binance' && (
           <>
-            <div style={{ fontSize: 15, fontWeight: 700, color: '#3b82f6', marginBottom: 10 }}>
-              <i className="fab fa-bitcoin" /> Binance গেটওয়ে — মাধ্যম বাছুন
+            <div style={{ fontSize: 14, fontWeight: 700, color: '#fbbf24', marginBottom: 8 }}>
+              <i className="fab fa-bitcoin" /> Binance — মাধ্যম বাছুন
             </div>
             {error && <p style={{ color: '#ef4444', fontSize: 13 }}>{error}</p>}
-            {payConfig.binance_enabled !== false && (
-              <button className="pay-method-btn" onClick={payWithBinance}>
-                <i className="fab fa-bitcoin" /> Binance Pay (অটো ভেরিফাই)
-              </button>
-            )}
-            {binanceIds.length > 0 && (
-              <button className="pay-method-btn crypto" style={{ background: 'linear-gradient(135deg, #d97706, #f59e0b)' }} onClick={() => { setError(''); setStep('binance-id') }}>
-                <i className="fas fa-id-badge" /> Binance ID দিয়ে পাঠান (USDT)
-                <span style={{ display: 'block', fontSize: 11, fontWeight: 400, opacity: 0.85, marginTop: 2 }}>
-                  ID-তে পাঠিয়ে Transfer ID দিন — অটো ভেরিফাই
-                </span>
-              </button>
-            )}
-            {payConfig.crypto_enabled !== false && cryptoWallets.length > 0 && (
-              <button className="pay-method-btn crypto" onClick={() => { setError(''); setStep('crypto') }}>
-                <i className="fas fa-coins" /> Crypto Wallet — TRC20/BEP20 (অটো ভেরিফাই)
-                <span style={{ display: 'block', fontSize: 11, fontWeight: 400, opacity: 0.85, marginTop: 2 }}>
-                  ঠিকানায় USDT পাঠিয়ে TXID দিন — অটো ভেরিফাই
-                </span>
-              </button>
-            )}
-            {payConfig.binance_enabled !== false && !isBackendEnabled() && (
-              <div style={{ fontSize: 12, color: '#f59e0b' }}>Binance Pay চালু করতে Backend লাগবে</div>
-            )}
+            <div className="pay-opts">
+              {payConfig.binance_enabled !== false && (
+                <button className="pay-opt" onClick={payWithBinance}>
+                  <span className="p-ico binance"><i className="fas fa-bolt" aria-hidden="true" /></span>
+                  <span className="p-body">
+                    <span className="p-title">Binance Pay</span>
+                    <span className="p-sub">বিন্যান্স চেকআউট পেজে পেমেন্ট — সম্পূর্ণ অটো ভেরিফাই</span>
+                  </span>
+                  <i className="fas fa-chevron-right p-check" aria-hidden="true" />
+                </button>
+              )}
+              {binanceIds.length > 0 && (
+                <button className="pay-opt" onClick={() => { setError(''); setStep('binance-id') }}>
+                  <span className="p-ico binance"><i className="fas fa-id-badge" aria-hidden="true" /></span>
+                  <span className="p-body">
+                    <span className="p-title">Binance ID দিয়ে পাঠান (USDT)</span>
+                    <span className="p-sub">Pay ID-তে পাঠিয়ে Transfer ID দিন — অটো ভেরিফাই</span>
+                  </span>
+                  <i className="fas fa-chevron-right p-check" aria-hidden="true" />
+                </button>
+              )}
+              {payConfig.crypto_enabled !== false && cryptoWallets.length > 0 && (
+                <button className="pay-opt" onClick={() => { setError(''); setStep('crypto') }}>
+                  <span className="p-ico crypto"><i className="fas fa-coins" aria-hidden="true" /></span>
+                  <span className="p-body">
+                    <span className="p-title">Crypto Wallet — TRC20/BEP20</span>
+                    <span className="p-sub">ঠিকানায় USDT পাঠিয়ে TXID দিন — অটো ভেরিফাই</span>
+                  </span>
+                  <i className="fas fa-chevron-right p-check" aria-hidden="true" />
+                </button>
+              )}
+              {payConfig.binance_enabled !== false && !isBackendEnabled() && (
+                <div style={{ fontSize: 12, color: '#f59e0b' }}>Binance Pay চালু করতে Backend লাগবে</div>
+              )}
+            </div>
             <button className="modal-close" style={{ marginTop: 8, width: '100%' }} onClick={() => { setGateway(''); setError('') }}>
               ← গেটওয়ে বাছাইয়ে ফিরুন
             </button>
