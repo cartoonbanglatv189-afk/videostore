@@ -29,20 +29,18 @@ function AdminLogin({ onLogin }) {
     if (!key.trim() || checking) return
     setChecking(true)
     setError('')
-    const result = await api.verifyKey(key.trim())
+    const ok = await api.verifyKey(key.trim())
     setChecking(false)
-    if (result === 'ok') {
+    if (ok) {
       setAdminKey(key.trim())
       onLogin()
-      return
+    } else {
+      setError(
+        isBackendEnabled()
+          ? 'ভুল পাসওয়ার্ড! Render-এ ADMIN_KEY যা দিয়েছেন সেটাই লিখুন।'
+          : 'ভুল পাসওয়ার্ড!'
+      )
     }
-    const messages = {
-      'wrong-key': 'ভুল পাসওয়ার্ড! Render → Environment → ADMIN_KEY যা দিয়েছেন সেটাই হুবহু লিখুন (কোনো স্পেস/কোটেশন ছাড়া)',
-      'admin-key-missing': 'Render-এ ADMIN_KEY env সেট নেই, বা সদ্য সেট করলে এখনো ডেপ্লয় হয়নি',
-      'backend-down': 'ব্যাকএন্ড unreachable! Vercel-এর VITE_BACKEND_URL ঠিক আছে কিনা দেখুন',
-      'backend-error': 'ব্যাকএন্ড এরর — Render-এর লগ দেখুন'
-    }
-    setError(messages[result] || (isBackendEnabled() ? 'ভুল পাসওয়ার্ড!' : 'ভুল পাসওয়ার্ড!'))
   }
 
   return (

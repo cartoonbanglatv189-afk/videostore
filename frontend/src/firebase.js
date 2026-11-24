@@ -73,40 +73,8 @@ async function fromBackend() {
 let dbInstance = null
 let readyPromise = null
 
-async function probeDbUrl(url) {
-  if (!url) return false
-  try {
-    const res = await fetch(`${url.replace(/\/+$/, '')}/.json?shallow=true`, { method: 'GET' })
-    return res.ok || res.status === 401
-  } catch {
-    return false
-  }
-}
-
 async function initializeFirebase() {
-  const candidates = [fromLocalEnv(), fromCache()]
-  for (const cfg of candidates) {
-    if (cfg && (await probeDbUrl(cfg.databaseURL))) {
-      const app = initializeApp(cfg)
-      dbInstance = getDatabase(app)
-      return dbInstance
-    }
-  }
-  const backendCfg = await fromBackend()
-  const pool = [backendCfg, ...candidates].filter(Boolean)
-  for (const cfg of pool) {
-    if (await probeDbUrl(cfg.databaseURL)) {
-      try {
-        localStorage.setItem(CACHE_KEY, JSON.stringify(cfg))
-      } catch {
-        /* ignore */
-      }
-      const app = initializeApp(cfg)
-      dbInstance = getDatabase(app)
-      return dbInstance
-    }
-  }
-  const cfg = pool[0]
+  const cfg = fromLocalEnv() || fromCache() || (await fromBackend())
   if (!cfg) {
     console.warn('Firebase config unavailable! Set VITE_BACKEND_URL (backend must expose /firebase-config) or VITE_FIREBASE_* env.')
     return null
