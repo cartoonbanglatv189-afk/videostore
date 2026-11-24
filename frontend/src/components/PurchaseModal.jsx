@@ -11,6 +11,7 @@ export default function PurchaseModal({ mode, target, userId, onClose, onSuccess
   const wallet = useFirebaseObject(userId ? `user_wallets/${userId}` : '__none__') || {}
   const balance = Number(wallet.balance || 0)
   const [step, setStep] = useState('method')
+  const [gateway, setGateway] = useState('')
   const [purchaseId, setPurchaseId] = useState(null)
   const [checkoutUrl, setCheckoutUrl] = useState('')
   const [txnRef, setTxnRef] = useState('')
@@ -246,7 +247,7 @@ export default function PurchaseModal({ mode, target, userId, onClose, onSuccess
           </button>
         </div>
 
-        {step === 'method' && (
+        {step === 'method' && gateway !== 'binance' && (
           <>
             <p style={{ color: '#9ca3af', fontSize: 13 }}>
               {mode === 'package' ? 'প্রিমিয়াম প্যাকেজ' : 'এই ভিডিও'} কিনুন — অ্যাড দেখার দরকার নেই
@@ -265,26 +266,59 @@ export default function PurchaseModal({ mode, target, userId, onClose, onSuccess
                 <i className="fas fa-wallet" /> Balance দিয়ে কিনুন ({balance} USDT)
               </button>
             )}
+            <div style={{ fontSize: 12, color: '#6b7280', margin: '10px 0 6px', textAlign: 'center' }}>── পেমেন্ট গেটওয়ে বাছুন ──</div>
             {payConfig.binance_enabled !== false && (
-              <button className="pay-method-btn" onClick={payWithBinance}>
-                <i className="fab fa-bitcoin" /> Binance Pay (Auto Verify)
+              <button className="pay-method-btn" style={{ background: 'linear-gradient(135deg, #1d4ed8, #3b82f6)' }} onClick={() => { setError(''); setGateway('binance') }}>
+                <i className="fab fa-bitcoin" /> Binance
+                <span style={{ display: 'block', fontSize: 11, fontWeight: 400, opacity: 0.85, marginTop: 2 }}>
+                  অটো ভেরিফাই — Pay / ID / Crypto (USDT)
+                </span>
               </button>
             )}
-            {payConfig.crypto_enabled !== false && cryptoWallets.length > 0 && (
-              <button className="pay-method-btn crypto" onClick={() => { setError(''); setStep('crypto') }}>
-                <i className="fas fa-coins" /> Crypto — TRC20/BEP20 (Auto Verify)
+            {payConfig.manual_enabled !== false && (
+              <button className="pay-method-btn manual" onClick={() => { setError(''); setGateway('mobile'); setStep('manual') }}>
+                <i className="fas fa-mobile-screen" /> মোবাইল ওয়ালেট
+                <span style={{ display: 'block', fontSize: 11, fontWeight: 400, opacity: 0.85, marginTop: 2 }}>
+                  bKash / নগদ / রকেট — অ্যাডমিন ভেরিফাই
+                </span>
+              </button>
+            )}
+          </>
+        )}
+
+        {step === 'method' && gateway === 'binance' && (
+          <>
+            <div style={{ fontSize: 15, fontWeight: 700, color: '#3b82f6', marginBottom: 10 }}>
+              <i className="fab fa-bitcoin" /> Binance গেটওয়ে — মাধ্যম বাছুন
+            </div>
+            {error && <p style={{ color: '#ef4444', fontSize: 13 }}>{error}</p>}
+            {payConfig.binance_enabled !== false && (
+              <button className="pay-method-btn" onClick={payWithBinance}>
+                <i className="fab fa-bitcoin" /> Binance Pay (অটো ভেরিফাই)
               </button>
             )}
             {binanceIds.length > 0 && (
               <button className="pay-method-btn crypto" style={{ background: 'linear-gradient(135deg, #d97706, #f59e0b)' }} onClick={() => { setError(''); setStep('binance-id') }}>
                 <i className="fas fa-id-badge" /> Binance ID দিয়ে পাঠান (USDT)
+                <span style={{ display: 'block', fontSize: 11, fontWeight: 400, opacity: 0.85, marginTop: 2 }}>
+                  ID-তে পাঠিয়ে Transfer ID দিন — অটো ভেরিফাই
+                </span>
               </button>
             )}
-            {payConfig.manual_enabled !== false && (
-              <button className="pay-method-btn manual" onClick={() => { setError(''); setStep('manual') }}>
-                <i className="fas fa-mobile-screen" /> bKash / ম্যানুয়াল (অ্যাডমিন ভেরিফাই)
+            {payConfig.crypto_enabled !== false && cryptoWallets.length > 0 && (
+              <button className="pay-method-btn crypto" onClick={() => { setError(''); setStep('crypto') }}>
+                <i className="fas fa-coins" /> Crypto Wallet — TRC20/BEP20 (অটো ভেরিফাই)
+                <span style={{ display: 'block', fontSize: 11, fontWeight: 400, opacity: 0.85, marginTop: 2 }}>
+                  ঠিকানায় USDT পাঠিয়ে TXID দিন — অটো ভেরিফাই
+                </span>
               </button>
             )}
+            {payConfig.binance_enabled !== false && !isBackendEnabled() && (
+              <div style={{ fontSize: 12, color: '#f59e0b' }}>Binance Pay চালু করতে Backend লাগবে</div>
+            )}
+            <button className="modal-close" style={{ marginTop: 8, width: '100%' }} onClick={() => { setGateway(''); setError('') }}>
+              ← গেটওয়ে বাছাইয়ে ফিরুন
+            </button>
           </>
         )}
 
@@ -327,7 +361,7 @@ export default function PurchaseModal({ mode, target, userId, onClose, onSuccess
               <i className="fas fa-check" /> পেমেন্ট করেছি, সাবমিট করুন
             </button>
             <button className="modal-close" style={{ marginTop: 8, width: '100%' }} onClick={() => { setStep('method'); setTxnRef('') }}>
-              ← ফিরে যান
+              ← Binance মাধ্যমে ফিরে যান
             </button>
           </>
         )}
@@ -378,7 +412,7 @@ export default function PurchaseModal({ mode, target, userId, onClose, onSuccess
               <i className="fas fa-check" /> পেমেন্ট করেছি, সাবমিট করুন
             </button>
             <button className="modal-close" style={{ marginTop: 8, width: '100%' }} onClick={() => { setStep('method'); setTxnRef('') }}>
-              ← ফিরে যান
+              ← Binance মাধ্যমে ফিরে যান
             </button>
           </>
         )}
@@ -436,6 +470,9 @@ export default function PurchaseModal({ mode, target, userId, onClose, onSuccess
             {error && <p style={{ color: '#ef4444', fontSize: 13 }}>{error}</p>}
             <button className="pay-method-btn" onClick={payManual}>
               <i className="fas fa-check" /> পেমেন্ট করেছি, সাবমিট করুন
+            </button>
+            <button className="modal-close" style={{ marginTop: 8, width: '100%' }} onClick={() => { setStep('method'); setGateway(''); setTxnRef('') }}>
+              ← গেটওয়ে বাছাইয়ে ফিরুন
             </button>
           </>
         )}
