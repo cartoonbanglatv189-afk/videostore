@@ -33,6 +33,17 @@ async def credit_balance(user_id: str, amount: float) -> None:
     await update_data(path, {"balance": round(balance + amount, 8), "updated_at": int(time.time() * 1000)})
 
 
+async def _credit_excess(user_id: str, required: float, paid: Any) -> None:
+    """If the user paid more than required, top up the remainder to their wallet."""
+    try:
+        paid_amt = float(paid) if paid is not None else float(required)
+    except (TypeError, ValueError):
+        paid_amt = float(required)
+    excess = round(paid_amt - float(required), 8)
+    if excess > 0.000001:
+        await credit_balance(user_id, excess)
+
+
 async def _match_binance_pay(ref: str, required: float, currency: str, cfg: dict) -> bool:
     result = await binance.query_pay_transactions(cfg)
     if not result.get("ok"):
@@ -49,8 +60,8 @@ async def _match_binance_pay(ref: str, required: float, currency: str, cfg: dict
             continue
         tx_currency = str(tx.get("currency") or "")
         if tx_amount >= required and (tx_currency == currency or not tx_currency):
-            return True
-    return False
+            return {"ok": True, "amount": tx_amount}
+    return {"ok": False}
 
 
 async def _build_purchase(payload: dict, method: str) -> dict:
@@ -299,6 +310,7 @@ async def crypto_check(purchase_id: str) -> dict:
             {"status": "approved", "verified_at": now, "verified_by": f"auto-{network}"},
         )
         await apply_purchase({**purchase, "status": "approved"})
+        await _credit_excess(str(purchase.get("user_id") or ""), float(purchase.get("amount") or 0), result.get("amount"))
         await reward_referrer_for_user(str(purchase.get("user_id") or ""), "purchase", purchase_id)
         return {"ok": True, "status": "approved"}
 
@@ -329,19 +341,20 @@ async def binance_id_check(purchase_id: str) -> dict:
     if not result.get("ok"):
         return {"ok": True, "status": purchase.get("status") or "pending", "auto": False}
 
-    approved = await _match_binance_pay(
+    match = await _match_binance_pay(
         str(purchase.get("transaction_ref") or ""),
         float(purchase.get("amount") or 0),
         str(purchase.get("currency") or "USDT"),
         cfg,
     )
-    if approved:
+    if match.get("ok"):
         now = int(time.time() * 1000)
         await update_data(
             f"purchases/{purchase_id}",
             {"status": "approved", "verified_at": now, "verified_by": "auto-binance-pay"},
         )
         await apply_purchase({**purchase, "status": "approved"})
+        await _credit_excess(str(purchase.get("user_id") or ""), float(purchase.get("amount") or 0), match.get("amount"))
         await reward_referrer_for_user(str(purchase.get("user_id") or ""), "purchase", purchase_id)
         return {"ok": True, "status": "approved"}
 
@@ -389,6 +402,7 @@ async def deposit_check(deposit_id: str) -> dict:
 
     approved = False
     reason = None
+    paid_amount = required
     if method == "crypto":
         network = str(deposit.get("crypto_network") or "").upper()
         verifier = AUTO_VERIFY_NETWORKS.get(network)
@@ -406,8 +420,19 @@ async def deposit_check(deposit_id: str) -> dict:
         result = await verifier(ref, wallet.get("address") or "", required)
         approved = bool(result.get("ok"))
         reason = result.get("reason")
+        if approved and result.get("amount") is not None:
+            try:
+                paid_amount = max(required, float(result.get("amount")))
+            except (TypeError, ValueError):
+                paid_amount = required
     elif method == "binance_id":
-        approved = await _match_binance_pay(ref, required, "USDT", cfg)
+        match = await _match_binance_pay(ref, required, "USDT", cfg)
+        approved = bool(match.get("ok"))
+        if approved and match.get("amount") is not None:
+            try:
+                paid_amount = max(required, float(match.get("amount")))
+            except (TypeError, ValueError):
+                paid_amount = required
 
     if approved:
         now = int(time.time() * 1000)
@@ -415,9 +440,9 @@ async def deposit_check(deposit_id: str) -> dict:
             f"deposits/{deposit_id}",
             {"status": "approved", "verified_at": now},
         )
-        await credit_balance(str(deposit.get("user_id") or ""), required)
+        await credit_balance(str(deposit.get("user_id") or ""), paid_amount)
         await reward_referrer_for_user(str(deposit.get("user_id") or ""), "purchase", deposit_id)
-        return {"ok": True, "status": "approved", "amount": required}
+        return {"ok": True, "status": "approved", "amount": paid_amount}
 
     return {"ok": True, "status": "pending", "reason": reason}
 

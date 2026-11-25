@@ -20,7 +20,7 @@ def _matches(to_addr: str | None, amount: float, symbol: str, want_addr: str, mi
         return _fail("wrong-address")
     if float(amount) < min_amount:
         return _fail("amount-too-low")
-    return {"ok": True}
+    return {"ok": True, "amount": float(amount)}
 
 
 async def verify_trc20(txid: str, to_address: str, min_amount: float) -> dict:

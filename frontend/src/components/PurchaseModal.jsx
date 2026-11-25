@@ -362,6 +362,9 @@ export default function PurchaseModal({ mode, target, userId, onClose, onSuccess
               placeholder="Binance Transfer ID / TXID"
               className="modal-input"
             />
+            <div style={{ fontSize: 11.5, color: '#34d399', marginTop: -4, marginBottom: 8 }}>
+              💡 দামের বেশি পাঠালে সমস্যা নেই — অতিরিক্ত টাকা আপনার Balance-এ জমা হবে
+            </div>
             {error && <p style={{ color: '#ef4444', fontSize: 13 }}>{error}</p>}
             <button className="pay-method-btn" onClick={payWithBinanceId} disabled={!txnRef.trim()}>
               <i className="fas fa-check" /> পেমেন্ট করেছি, সাবমিট করুন
@@ -413,6 +416,9 @@ export default function PurchaseModal({ mode, target, userId, onClose, onSuccess
               placeholder="TXID লিখুন (Transaction Hash)"
               className="modal-input"
             />
+            <div style={{ fontSize: 11.5, color: '#34d399', marginTop: -4, marginBottom: 8 }}>
+              💡 দামের বেশি পাঠালে সমস্যা নেই — অতিরিক্ত টাকা আপনার Balance-এ জমা হবে
+            </div>
             {error && <p style={{ color: '#ef4444', fontSize: 13 }}>{error}</p>}
             <button className="pay-method-btn" onClick={payWithCrypto} disabled={!selectedWallet || !txnRef.trim()}>
               <i className="fas fa-check" /> পেমেন্ট করেছি, সাবমিট করুন
