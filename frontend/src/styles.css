@@ -188,6 +188,20 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .pay-opt { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 52px; background: var(--bg-inset); border: 1px solid var(--line); border-radius: 12px; padding: 8px 12px; cursor: pointer; font-family: inherit; text-align: left; color: #e5e7eb; transition: border-color .15s ease, background .15s ease; }
 .pay-opt:hover { border-color: var(--line-strong); }
 .pay-opt:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.method-wrap { position: relative; }
+.method-trigger { width: 100%; display: flex; align-items: center; gap: 11px; padding: 12px 14px; min-height: 52px; background: var(--bg-raised); border: 1px solid var(--line-strong); border-radius: var(--radius); color: var(--text-main); cursor: pointer; font-family: inherit; text-align: left; }
+.method-trigger:hover { border-color: var(--accent-border); }
+.method-trigger .m-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.m-t { font-weight: 700; font-size: 13.5px; }
+.m-s { font-size: 11.5px; color: var(--text-muted); }
+.m-chev { color: var(--text-muted); font-size: 13px; }
+.method-drop { margin-top: 8px; background: var(--bg-raised); border: 1px solid var(--line-strong); border-radius: var(--radius); overflow: hidden; animation: dropIn 0.15s ease; }
+@keyframes dropIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+.m-row { display: flex; align-items: center; gap: 11px; width: 100%; padding: 11px 14px; background: transparent; border: none; border-bottom: 1px solid var(--line); color: var(--text-main); cursor: pointer; text-align: left; font-family: inherit; }
+.m-row:last-child { border-bottom: none; }
+.m-row:hover { background: rgba(255, 255, 255, 0.04); }
+.m-row.sel { background: var(--accent-soft); }
+.m-check { margin-left: auto; color: var(--primary); font-size: 15px; }
 .pay-opt { touch-action: manipulation; }
 .pay-opt.active { border-color: var(--accent-border); background: var(--accent-soft); }
 .pay-opt.active .p-ico { color: #fda4af; background: rgba(244, 63, 94, 0.18); }
