@@ -252,7 +252,7 @@ export default function PurchaseModal({ mode, target, userId, onClose, onSuccess
         {step === 'method' && (() => {
           const methods = [
             ...(isBackendEnabled()
-              ? [{ key: 'balance', icon: 'fas fa-wallet', ico: 'balance', title: 'Balance দিয়ে কিনুন', sub: `${balance} USDT ${balance < amount ? '— বেশি নয়' : 'আছে'}` }]
+              ? [{ key: 'balance', icon: 'fas fa-wallet', ico: 'balance', title: 'Balance দিয়ে কিনুন', sub: `${balance} USDT ${balance < amount ? '— অপর্যাপ্ত ব্যালেন্স, প্রথমে Deposit করুন' : 'আছে'}` }]
               : []),
             ...(payConfig.binance_enabled !== false && binancePayConfigured
               ? [
@@ -317,7 +317,8 @@ export default function PurchaseModal({ mode, target, userId, onClose, onSuccess
               {(method === 'balance' || method === 'binance-pay') && (
                 <button
                   className="pay-method-btn"
-                  style={{ marginTop: 12 }}
+                  style={{ marginTop: 12, opacity: method === 'balance' && balance < amount ? 0.55 : 1 }}
+                  disabled={method === 'balance' && balance < amount}
                   onClick={method === 'balance' ? payWithBalance : payWithBinance}
                 >
                   <i className="fas fa-check" aria-hidden="true" /> {method === 'balance' ? 'Balance দিয়ে কিনুন' : 'Continue — Binance Checkout খুলুন'}
