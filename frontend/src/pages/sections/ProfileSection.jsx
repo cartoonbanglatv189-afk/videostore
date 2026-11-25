@@ -48,6 +48,7 @@ export default function ProfileSection({ userId }) {
   })()
 
   useEffect(() => () => pollRef.current && clearInterval(pollRef.current), [])
+  const hasDepMethods = binanceIds.length > 0 || cryptoWallets.length > 0
 
   useEffect(() => {
     if (depStatus === 'approved') {
@@ -67,7 +68,7 @@ export default function ProfileSection({ userId }) {
 
   const submitDeposit = async () => {
     if (!isBackendEnabled()) {
-      setDepError('Deposit-এর জন্য Backend চালু থাকতে হবে')
+      setDepError('ডিপোজিট এখনো চালু নেই — একটু পরে চেষ্টা করুন')
       return
     }
     const amount = parseFloat(depAmount) || 0
@@ -132,6 +133,7 @@ export default function ProfileSection({ userId }) {
         <div className="pb-hint">একবারে বড় অ্যামাউন্ট ডিপোজিট করে রাখতে পারেন — পরে এক ক্লিকে সব কিনবেন!</div>
       </div>
 
+      {hasDepMethods && (<>
       <h4 style={{ color: '#fda4af', margin: '18px 0 8px' }}>⬇️ Deposit করুন (USDT)</h4>
 
       {depStatus === 'verifying' ? (
@@ -198,6 +200,8 @@ export default function ProfileSection({ userId }) {
             <i className="fas fa-check" /> পেমেন্ট করেছি, Deposit সাবমিট
           </button>
         </div>
+      )}
+      </>
       )}
 
             {refEnabled && (

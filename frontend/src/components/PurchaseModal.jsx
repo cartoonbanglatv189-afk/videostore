@@ -22,6 +22,7 @@ export default function PurchaseModal({ mode, target, userId, onClose, onSuccess
   const pollRef = useRef(null)
 
   const purchase = useFirebaseObject(purchaseId ? `purchases/${purchaseId}` : '__none__')
+  const binancePayConfigured = !!(payConfig.binance_api_key && payConfig.binance_api_secret)
 
   const amount =
     mode === 'package'
@@ -71,7 +72,7 @@ export default function PurchaseModal({ mode, target, userId, onClose, onSuccess
 
   async function payWithBalance() {
     if (!isBackendEnabled()) {
-      setError('Backend চালু থাকতে হবে')
+      setError('পেমেন্ট এখনো চালু নেই — একটু পরে চেষ্টা করুন')
       return
     }
     setError('')
@@ -94,7 +95,7 @@ export default function PurchaseModal({ mode, target, userId, onClose, onSuccess
 
   async function payWithBinance() {
     if (!isBackendEnabled()) {
-      setError('Binance Pay এর জন্য Backend চালু থাকতে হবে')
+      setError('পেমেন্ট এখনো চালু নেই — একটু পরে চেষ্টা করুন')
       return
     }
     setError('')
@@ -129,7 +130,7 @@ export default function PurchaseModal({ mode, target, userId, onClose, onSuccess
 
   async function payWithBinanceId() {
     if (!isBackendEnabled()) {
-      setError('Backend চালু থাকতে হবে')
+      setError('পেমেন্ট এখনো চালু নেই — একটু পরে চেষ্টা করুন')
       return
     }
     if (!txnRef.trim()) {
@@ -162,7 +163,7 @@ export default function PurchaseModal({ mode, target, userId, onClose, onSuccess
 
   async function payWithCrypto() {
     if (!isBackendEnabled()) {
-      setError('Crypto payment-এর জন্য Backend চালু থাকতে হবে')
+      setError('পেমেন্ট এখনো চালু নেই — একটু পরে চেষ্টা করুন')
       return
     }
     if (!selectedWallet) {
@@ -214,7 +215,7 @@ export default function PurchaseModal({ mode, target, userId, onClose, onSuccess
     if (!purchase_id) {
       const db = await getDb()
       if (!db) {
-        showToast('Firebase unavailable!')
+        showToast('সংযোগ সমস্যা — আবার চেষ্টা করুন')
         return
       }
       const node = await push(ref(db, 'purchases'), {
@@ -253,14 +254,14 @@ export default function PurchaseModal({ mode, target, userId, onClose, onSuccess
             ...(isBackendEnabled()
               ? [{ key: 'balance', icon: 'fas fa-wallet', ico: 'balance', title: 'Balance দিয়ে কিনুন', sub: `${balance} USDT ${balance < amount ? '— বেশি নয়' : 'আছে'}` }]
               : []),
-            ...(payConfig.binance_enabled !== false
+            ...(payConfig.binance_enabled !== false && binancePayConfigured
               ? [
                   { key: 'binance-pay', icon: 'fas fa-bolt', ico: 'binance', title: 'Binance Pay', sub: 'চেকআউট পেজে পেমেন্ট — সম্পূর্ণ অটো ভেরিফাই' },
                   ...(binanceIds.length > 0 ? [{ key: 'binance-id', icon: 'fas fa-id-badge', ico: 'binance', title: 'Binance ID (Pay ID)', sub: 'Pay ID-তে USDT পাঠিয়ে Transfer ID দিন — অটো ভেরিফাই' }] : []),
                   ...(payConfig.crypto_enabled !== false && cryptoWallets.length > 0 ? [{ key: 'crypto', icon: 'fas fa-coins', ico: 'crypto', title: 'Crypto Wallet — TRC20/BEP20', sub: 'ঠিকানায় USDT পাঠিয়ে TXID দিন — অটো ভেরিফাই' }] : [])
                 ]
               : []),
-            ...(payConfig.manual_enabled !== false ? [{ key: 'mobile', icon: 'fas fa-mobile-screen', ico: 'mobile', title: 'মোবাইল ওয়ালেট', sub: 'bKash / নগদ / রকেট — অ্যাডমিন ভেরিফাই' }] : [])
+            ...(payConfig.manual_enabled !== false && mobileWallets.length > 0 ? [{ key: 'mobile', icon: 'fas fa-mobile-screen', ico: 'mobile', title: 'মোবাইল ওয়ালেট', sub: 'bKash / নগদ / রকেট — অ্যাডমিন ভেরিফাই' }] : [])
           ]
           const sel = methods.find(m => m.key === method)
           function selectMethod(key) {
@@ -280,9 +281,15 @@ export default function PurchaseModal({ mode, target, userId, onClose, onSuccess
                 {manualAmount ? `${manualAmount} ৳` : `${amount} USDT`}
               </div>
               {error && <p style={{ color: '#ef4444', fontSize: 13 }}>{error}</p>}
+              {methods.length === 0 ? (
+                <div style={{ fontSize: 13, color: 'var(--text-muted)', padding: '14px 0' }}>
+                  পেমেন্ট এখনো চালু নেই — একটু পরে চেষ্টা করুন
+                </div>
+              ) : (
               <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 6 }}>
                 মেথড — ফিল্ডে ক্লিক করে লিস্ট থেকে সিলেক্ট করুন
               </div>
+              )}
               <div className="method-wrap">
                 <button type="button" className="method-trigger" aria-expanded={dropOpen} onClick={() => setDropOpen(o => !o)}>
                   {sel ? (
@@ -315,9 +322,6 @@ export default function PurchaseModal({ mode, target, userId, onClose, onSuccess
                 >
                   <i className="fas fa-check" aria-hidden="true" /> {method === 'balance' ? 'Balance দিয়ে কিনুন' : 'Continue — Binance Checkout খুলুন'}
                 </button>
-              )}
-              {!isBackendEnabled() && (
-                <div style={{ fontSize: 12, color: '#f59e0b', marginTop: 10 }}>Binance Pay চালু করতে Backend লাগবে</div>
               )}
             </>
           )
@@ -456,9 +460,6 @@ export default function PurchaseModal({ mode, target, userId, onClose, onSuccess
                   </button>
                 </div>
               ))}
-              {mobileWallets.length === 0 && (
-                <div style={{ color: '#9ca3af', fontSize: 12 }}>এখনও কোনো নাম্বার সেট করা হয়েছে না — অ্যাডমিন প্যানেলে যোগ করুন</div>
-              )}
             </div>
             {payConfig.manual_instructions && <div style={{ fontSize: 12, color: '#9ca3af', marginBottom: 8 }}>{payConfig.manual_instructions}</div>}
             <input
