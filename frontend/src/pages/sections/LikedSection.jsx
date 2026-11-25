@@ -24,7 +24,7 @@ export default function LikedSection({ allVideos, onUnlock, onLike, onShare, onO
   return (
     <div className="fadeIn">
       <h3 style={{ color: 'var(--primary)', marginLeft: 5 }}>❤️ পছন্দের ভিডিও</h3>
-      <div className="cards">
+      <div className="cards video-grid">
         {videos.length === 0 && (
           <p style={{ textAlign: 'center', color: 'gray', padding: 20 }}>পছন্দের ভিডিও নেই</p>
         )}

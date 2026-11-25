@@ -116,7 +116,7 @@ export default function HomeSection({ allVideos, filters, bannerAds, onUnlock, o
         ))}
       </div>
 
-      <div className="cards">
+      <div className="cards video-grid">
         {visibleVideos.length === 0 && (
           <p style={{ textAlign: 'center', color: '#666', marginTop: 20 }}>কোনো ভিডিও পাওয়া যায়নি</p>
         )}

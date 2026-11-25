@@ -56,6 +56,17 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 
 /* --- VIDEO CARDS --- */
 .cards { display: flex; flex-direction: column; gap: 16px; }
+.cards.video-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.cards.video-grid .meta { padding: 10px 11px 11px; }
+.cards.video-grid .meta-header { margin-bottom: 9px; }
+.cards.video-grid .meta h3 { font-size: 13px; }
+.cards.video-grid .view-count-badge { font-size: 10px; padding: 3px 7px; }
+.cards.video-grid .actions { gap: 7px; }
+.cards.video-grid .unlock-btn { padding: 10px 6px; font-size: 12px; gap: 6px; }
+.cards.video-grid .link-btn { width: 38px; }
+.cards.video-grid .buy-btn { font-size: 11.5px; padding: 9px 4px; margin-top: 8px; min-height: 40px; line-height: 1.35; }
+.cards.video-grid .price-pill { font-size: 10px; padding: 4px 8px; bottom: 8px; right: 8px; }
+@media (max-width: 330px) { .cards.video-grid { grid-template-columns: 1fr; } }
 .card { background: var(--bg-card); border-radius: var(--radius-lg); overflow: hidden; border: var(--border); box-shadow: var(--shadow-card); transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease; }
 .card:hover { transform: translateY(-2px); border-color: var(--line-strong); box-shadow: 0 10px 32px rgba(0, 0, 0, 0.5); }
 .card .media img { transition: transform 0.25s ease; }
