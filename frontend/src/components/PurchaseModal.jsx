@@ -503,20 +503,31 @@ export default function PurchaseModal({ mode, target, userId, onClose, onSuccess
           </>
         )}
 
-        {/* ============ WAITING ============ */}
-        {(step === 'crypto-waiting' || step === 'manual-waiting') && (
-          <>
-            <div className="ck-card ck-status">
-              <div className="ck-check">◷</div>
-              <div className="ck-title" style={{ marginBottom: 4 }}>Payment Submitted!</div>
-              <p className="ck-muted">Your payment information has been submitted. Verification is in progress{step === 'crypto-waiting' ? ' — auto-verify usually takes 1–5 minutes' : ' — the admin will approve it shortly'}.</p>
-              <div className="ck-line" />
-              <div className="ck-row"><span>Transaction ID</span><b>{txnRef.slice(0, 18)}{txnRef.length > 18 ? '…' : ''}</b></div>
-              <div className="ck-row"><span>Total Amount</span><b>{payAmt}</b></div>
-              <div className="ck-row"><span>Status</span><b style={{ color: '#e9b75d' }}>{step === 'crypto-waiting' ? 'Auto-verifying…' : 'Pending Verification'}</b></div>
-              <button className="ck-primary" onClick={onClose}>Back To Store</button>
-            </div>
-          </>
+        {/* ============ VERIFYING (auto) ============ */}
+        {step === 'crypto-waiting' && (
+          <div className="ck-card ck-status">
+            <div className="ck-spinner" />
+            <div className="ck-title" style={{ marginBottom: 4 }}>Verifying Payment…</div>
+            <p className="ck-muted">Please keep this page open — we are automatically checking your payment. The video will unlock on its own the moment it is verified (usually 1–5 minutes).</p>
+            <div className="ck-line" />
+            <div className="ck-row"><span>Transaction ID</span><b>{txnRef.slice(0, 18)}{txnRef.length > 18 ? '…' : ''}</b></div>
+            <div className="ck-row"><span>Total Amount</span><b>{payAmt}</b></div>
+            <div className="ck-row"><span>Status</span><b style={{ color: 'var(--gold)' }}>Verifying…</b></div>
+          </div>
+        )}
+
+        {/* ============ PENDING (admin verify) ============ */}
+        {step === 'manual-waiting' && (
+          <div className="ck-card ck-status">
+            <div className="ck-check">◷</div>
+            <div className="ck-title" style={{ marginBottom: 4 }}>Payment Submitted!</div>
+            <p className="ck-muted">Your payment information has been submitted. The admin will verify it shortly.</p>
+            <div className="ck-line" />
+            <div className="ck-row"><span>Transaction ID</span><b>{txnRef.slice(0, 18)}{txnRef.length > 18 ? '…' : ''}</b></div>
+            <div className="ck-row"><span>Total Amount</span><b>{payAmt}</b></div>
+            <div className="ck-row"><span>Status</span><b style={{ color: 'var(--gold)' }}>Pending Verification</b></div>
+            <button className="ck-primary" onClick={onClose}>Back To Store</button>
+          </div>
         )}
       </div>
     </div>
