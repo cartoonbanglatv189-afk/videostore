@@ -341,3 +341,4 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 @media (prefers-reduced-motion: reduce) {
   .ck-spinner { border-top-color: var(--line-strong); animation: none; }
 }
+.ck-fail { font-size: 46px; color: #ef4444; font-weight: 800; line-height: 1; }

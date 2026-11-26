@@ -21,6 +21,7 @@ export default function PurchaseModal({ mode, target, userId, onClose, onSuccess
   const [selectedWallet, setSelectedWallet] = useState(null)
   const [selectedPayId, setSelectedPayId] = useState('')
   const pollRef = useRef(null)
+  const verifyTimerRef = useRef(null)
 
   const purchase = useFirebaseObject(purchaseId ? `purchases/${purchaseId}` : '__none__')
   const binancePayConfigured = !!(payConfig.binance_api_key && payConfig.binance_api_secret)
@@ -53,19 +54,39 @@ export default function PurchaseModal({ mode, target, userId, onClose, onSuccess
   useEffect(() => {
     if (purchase && purchase.status === 'approved') {
       cleanup()
-      showToast('Payment Verified! Unlocked 🎉')
+      showToast('Payment Verified — Unlocked!')
       onSuccess && onSuccess()
-      onClose()
+      setStep('success')
     }
     return undefined
   }, [purchase && purchase.status])
 
   useEffect(() => () => cleanup(), [])
 
+  // Auto-verify deadline: if no payment is found within 7 minutes, show "Payment Not Found"
+  function startVerifyDeadline() {
+    if (verifyTimerRef.current) clearTimeout(verifyTimerRef.current)
+    verifyTimerRef.current = setTimeout(() => {
+      setStep(s => (s === 'crypto-waiting' ? 'failed' : s))
+      cleanup()
+    }, 7 * 60 * 1000)
+  }
+
+  // Success screen auto-closes after a few seconds
+  useEffect(() => {
+    if (step !== 'success') return undefined
+    const t = setTimeout(() => onClose && onClose(), 5000)
+    return () => clearTimeout(t)
+  }, [step])
+
   function cleanup() {
     if (pollRef.current) {
       clearInterval(pollRef.current)
       pollRef.current = null
+    }
+    if (verifyTimerRef.current) {
+      clearTimeout(verifyTimerRef.current)
+      verifyTimerRef.current = null
     }
   }
 
@@ -150,6 +171,7 @@ export default function PurchaseModal({ mode, target, userId, onClose, onSuccess
       }
       setPurchaseId(res.purchase_id)
       setStep('crypto-waiting')
+      startVerifyDeadline()
       pollRef.current = setInterval(async () => {
         try {
           const check = await api.binanceIdCheck(res.purchase_id)
@@ -188,6 +210,7 @@ export default function PurchaseModal({ mode, target, userId, onClose, onSuccess
       }
       setPurchaseId(res.purchase_id)
       setStep('crypto-waiting')
+      startVerifyDeadline()
       pollRef.current = setInterval(async () => {
         try {
           const check = await api.cryptoCheck(res.purchase_id)
@@ -513,6 +536,44 @@ export default function PurchaseModal({ mode, target, userId, onClose, onSuccess
             <div className="ck-row"><span>Transaction ID</span><b>{txnRef.slice(0, 18)}{txnRef.length > 18 ? '…' : ''}</b></div>
             <div className="ck-row"><span>Total Amount</span><b>{payAmt}</b></div>
             <div className="ck-row"><span>Status</span><b style={{ color: 'var(--gold)' }}>Verifying…</b></div>
+          </div>
+        )}
+
+        {/* ============ SUCCESS ============ */}
+        {step === 'success' && (
+          <div className="ck-card ck-status">
+            <div className="ck-check">&#10003;</div>
+            <div className="ck-title" style={{ marginBottom: 4 }}>Payment Successful!</div>
+            <p className="ck-muted">Your payment has been verified and completed. Enjoy! 🎉</p>
+            <div className="ck-line" />
+            <div className="ck-row"><span>Item</span><b>{itemLabel}</b></div>
+            <div className="ck-row"><span>Total Amount</span><b>{payAmt}</b></div>
+            <div className="ck-row"><span>Status</span><b style={{ color: 'var(--green)' }}>Completed &#10003;</b></div>
+            <button className="ck-primary" onClick={onClose} style={{ background: 'var(--green)', boxShadow: 'none' }}>Back To Store</button>
+          </div>
+        )}
+
+        {/* ============ FAILED (auto-verify not found) ============ */}
+        {step === 'failed' && (
+          <div className="ck-card ck-status">
+            <div className="ck-fail">&#10005;</div>
+            <div className="ck-title" style={{ marginBottom: 4 }}>Payment Not Found</div>
+            <p className="ck-muted">No payment was found for the Transaction ID you submitted. If you have already paid, it may still be confirming on the network — please double-check the Transaction ID (TXID) and the network, then submit again. You have not been charged by us.</p>
+            <div className="ck-line" />
+            <div className="ck-row"><span>Transaction ID</span><b>{txnRef.slice(0, 18)}{txnRef.length > 18 ? '…' : ''}</b></div>
+            <div className="ck-row"><span>Status</span><b style={{ color: '#ef4444' }}>Not Found</b></div>
+            <button className="ck-primary" onClick={() => { setStep('checkout'); setDetail(null); setTxnRef(''); setError('') }}>
+              Try Another Payment Method
+            </button>
+            {detail && (
+              <button
+                className="ck-back"
+                style={{ marginBottom: 0, marginTop: 8 }}
+                onClick={() => { setStep('details'); setError('') }}
+              >
+                ← Re-enter Transaction ID
+              </button>
+            )}
           </div>
         )}
 
