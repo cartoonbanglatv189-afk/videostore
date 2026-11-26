@@ -1,7 +1,7 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "functions": {
-    "api/binance-proxy.js": { "runtime": "@vercel/node@5", "maxDuration": 15 }
+    "api/binance-proxy.js": { "maxDuration": 15 }
   },
   "rewrites": [
     { "source": "/api/binance-proxy/(.*)", "destination": "/api/binance-proxy" }
