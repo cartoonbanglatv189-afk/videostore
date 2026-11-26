@@ -394,7 +394,7 @@ async def binance_id_check(purchase_id: str) -> dict:
     cfg = (await read_data("payments_config")) or {}
     result = await binance.query_pay_transactions(cfg)
     if not result.get("ok"):
-        return {"ok": True, "status": purchase.get("status") or "pending", "auto": False}
+        return {"ok": True, "status": purchase.get("status") or "pending", "auto": False, "gateway_error": result.get("gateway_error", "query-failed")}
 
     match = await _match_binance_pay(
         str(purchase.get("transaction_ref") or ""),
