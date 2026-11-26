@@ -59,8 +59,10 @@ def admin_menu() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="➕ নতুন প্যাকেজ", callback_data="adm:newpkg")],
         [InlineKeyboardButton(text="📦 প্যাকেজ তালিকা", callback_data="adm:pkglist")],
-        [InlineKeyboardButton(text="👥 ইউজার সংখ্যা", callback_data="adm:users")],
+        [InlineKeyboardButton(text="👥 ইউজার", callback_data="adm:uslist"),
+         InlineKeyboardButton(text="📢 ব্রডকাস্ট", callback_data="adm:bcast")],
         [InlineKeyboardButton(text="💰 ডিপোজিট ম্যানেজমেন্ট", callback_data="adm:dep")],
+        [InlineKeyboardButton(text="⚙️ সেটিংস", callback_data="adm:settings")],
     ])
 
 
@@ -98,3 +100,33 @@ def delete_confirm_kb(key: str) -> InlineKeyboardMarkup:
 
 
 remove_kb = ForceReply
+
+
+def settings_kb(s: dict) -> InlineKeyboardMarkup:
+    def tog(label, on):
+        return f"{label}: {'✅ ON' if on else '❌ OFF'}"
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text=tog("🛒 কেনা", s.get("buy_on")), callback_data="adm:tgl:buy_on")],
+        [InlineKeyboardButton(text=tog("💰 ডিপোজিট", s.get("deposit_on")), callback_data="adm:tgl:deposit_on")],
+        [InlineKeyboardButton(text=tog("👥 রেফার", s.get("referral_on")), callback_data="adm:tgl:referral_on")],
+        [InlineKeyboardButton(text=f"🎁 রেফার বোনাস: {s.get('referral_bonus', 0)} ৳ — সেট", callback_data="adm:setbonus")],
+        [InlineKeyboardButton(text="⬅️ এডমিন মেনু", callback_data="adm:menu")],
+    ])
+
+
+def user_list_kb(users: dict) -> InlineKeyboardMarkup:
+    rows = []
+    for uid, u in list(users.items())[-20:]:
+        nm = (u.get("first_name") or "?")[:14]
+        rows.append([InlineKeyboardButton(text=f"👥 {nm} (…{str(uid)[-4:]})", callback_data=f"adm:usr:{uid}")])
+    rows.append([InlineKeyboardButton(text="⬅️ এডমিন মেনু", callback_data="adm:menu")])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def user_manage_kb(uid: str) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="➕ ব্যালেন্স জোগ", callback_data=f"adm:baladd:{uid}"),
+         InlineKeyboardButton(text="➖ ব্যালেন্স কাটা", callback_data=f"adm:balsub:{uid}")],
+        [InlineKeyboardButton(text="🚫 ব্যান/অব্যান", callback_data=f"adm:ban:{uid}")],
+        [InlineKeyboardButton(text="⬅️ ইউজার লিস্ট", callback_data="adm:uslist")],
+    ])

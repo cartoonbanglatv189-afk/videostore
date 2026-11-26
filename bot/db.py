@@ -49,6 +49,16 @@ PACKAGES = f"{config.BASE}/packages"
 PURCHASES = f"{config.BASE}/purchases"
 USERS = f"{config.BASE}/users"
 REFERRAL = f"{config.BASE}/referral_config"
+SETTINGS = f"{config.BASE}/settings"
+
+DEFAULT_SETTINGS = {"buy_on": True, "deposit_on": True, "referral_on": True, "referral_bonus": 0}
+
+
+async def get_settings() -> dict:
+    s = await rget(SETTINGS) or {}
+    out = dict(DEFAULT_SETTINGS)
+    out.update({k: v for k, v in s.items() if k in DEFAULT_SETTINGS})
+    return out
 DEPOSITS = f"{config.BASE}/deposits"
 DEPOSIT_METHODS = f"{config.BASE}/deposit_methods"
 

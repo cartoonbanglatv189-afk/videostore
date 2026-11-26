@@ -99,6 +99,14 @@ def dep_methods_kb(methods: dict) -> InlineKeyboardMarkup:
 
 @router.message(F.text == "💰 ডিপোজিট")
 async def deposit_menu(message: Message, state: FSMContext):
+    st = await db.get_settings()
+    if not st.get("deposit_on", True):
+        await message.answer("⛔ <b>ডিপোজিট সিস্টেম এখন বন্ধ আছে।</b>", reply_markup=_mm_x(message))
+        return
+    um = await db.rget(f"{db.USERS}/{message.from_user.id}") or {}
+    if um.get("banned"):
+        await message.answer("🚫 আপনাকে ব্যান করা হয়েছে!", reply_markup=_mm_x(message))
+        return
     await state.clear()
     bal = await db.rget(f"{db.USERS}/{message.from_user.id}/balance") or 0
     methods = await db.rget(db.DEPOSIT_METHODS) or {}
@@ -114,6 +122,14 @@ async def deposit_menu(message: Message, state: FSMContext):
 
 @router.callback_query(F.data == "dep:menu")
 async def cb_dep_menu(cb: CallbackQuery, state: FSMContext):
+    st = await db.get_settings()
+    if not st.get("deposit_on", True):
+        await cb.answer("⛔ ডিপোজিট সিস্টেম বন্ধ আছে", show_alert=True)
+        return
+    u = await db.rget(f"{db.USERS}/{cb.from_user.id}") or {}
+    if u.get("banned"):
+        await cb.answer("🚫 আপনাকে ব্যান করা হয়েছে!", show_alert=True)
+        return
     await state.clear()
     methods = await db.rget(db.DEPOSIT_METHODS) or {}
     methods = {k: v for k, v in methods.items() if isinstance(v, dict) and v.get("address")}

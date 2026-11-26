@@ -26,6 +26,15 @@ class Media(StatesGroup):
 class Edit(StatesGroup):
     value = State()
 
+class Sett(StatesGroup):
+    bonus = State()
+
+class Bal(StatesGroup):
+    amount = State()
+
+class Bcast(StatesGroup):
+    text = State()
+
 
 def admin_only(message: Message) -> bool:
     return message.from_user.id in config.ADMIN_IDS
@@ -459,3 +468,205 @@ async def adm_del(cb: CallbackQuery):
 async def adm_users(cb: CallbackQuery):
     users = await db.rget(db.USERS) or {}
     await cb.answer(f"👥 মোট ইউজার: {len(users)} জন", show_alert=True)
+
+
+# ================= settings panel =================
+
+@router.callback_query(F.data == "adm:settings")
+async def adm_settings(cb: CallbackQuery):
+    s = await db.get_settings()
+    await cb.message.edit_text("⚙️ <b>সেটিংস</b>\nচালু/বন্ধ করতে বাটনে চাপ দিন:", reply_markup=kb.settings_kb(s))
+    await cb.answer()
+
+
+@router.callback_query(F.data.startswith("adm:tgl:"))
+async def adm_toggle(cb: CallbackQuery):
+    field = cb.data.split(":", 2)[2]
+    s = await db.get_settings()
+    if field in s:
+        await db.rpatch(db.SETTINGS, {field: not bool(s.get(field))})
+        s = await db.get_settings()
+    try:
+        await cb.message.edit_reply_markup(reply_markup=kb.settings_kb(s))
+    except Exception:
+        await cb.message.edit_text("⚙️ <b>সেটিংস</b>", reply_markup=kb.settings_kb(s))
+    await cb.answer()
+
+
+@router.callback_query(F.data == "adm:setbonus")
+async def adm_setbonus(cb: CallbackQuery, state: FSMContext):
+    await state.set_state(Sett.bonus)
+    await cb.message.answer("🎁 রেফার জয়েন বোনাস লিখুন (শুধু সংখ্যা, ৳ ছাড়া; 0 = বন্ধ):")
+    await cb.answer()
+
+
+@router.message(Sett.bonus, F.text)
+async def sett_bonus(message: Message, state: FSMContext):
+    if not admin_only(message):
+        return
+    t = message.text.strip().replace("৳", "").strip()
+    if not t.replace(".", "", 1).isdigit():
+        return await message.answer("শুধু সংখ্যা লিখুন (0 = বন্ধ):")
+    await db.rpatch(db.SETTINGS, {"referral_bonus": float(t)})
+    await state.clear()
+    await message.answer(f"✅ রেফার বোনাস সেট হলো: {t} ৳", reply_markup=kb.admin_menu())
+
+
+# ================= user management =================
+
+@router.callback_query(F.data == "adm:uslist")
+async def adm_uslist(cb: CallbackQuery):
+    users = await db.rget(db.USERS) or {}
+    if not users:
+        await cb.answer("কোনো ইউজার নেই", show_alert=True)
+        return
+    await cb.message.edit_text(f"👥 <b>ইউজার</b> ({len(users)} জন)\nকাউকে বাছুন:", reply_markup=kb.user_list_kb(users))
+    await cb.answer()
+
+
+@router.callback_query(F.data.startswith("adm:usr:"))
+async def adm_usr(cb: CallbackQuery):
+    uid = cb.data.split(":", 2)[2]
+    u = await db.rget(f"{db.USERS}/{uid}") or {}
+    if not u:
+        await cb.answer("ইউজার নেই", show_alert=True)
+        return
+    pur = await db.rget(f"{db.PURCHASES}/{uid}") or {}
+    deps = await db.rget(db.DEPOSITS) or {}
+    n_dep = sum(1 for d in deps.values() if isinstance(d, dict) and str(d.get("uid")) == str(uid))
+    txt = (
+        f"👤 <b>{u.get('first_name') or '?'}</b>"
+        + (f" (@{u.get('username')})" if u.get('username') else "")
+        + f"\n🆔 <code>{uid}</code>"
+        + f"\n💰 ব্যালেন্স: <b>{u.get('balance') or 0} ৳</b>"
+        + f"\n👥 রেফার: {u.get('ref_count') or 0} জন"
+        + f"\n🛒 কেনেছে: {len(pur)} টা প্যাকেজ"
+        + f"\n💰 ডিপোজিট: {n_dep} টা"
+        + ("\n\n🚫 <b>BANNED</b>" if u.get("banned") else "\n\n✅ Active")
+    )
+    await cb.message.edit_text(txt, reply_markup=kb.user_manage_kb(uid))
+    await cb.answer()
+
+
+@router.callback_query(F.data.startswith("adm:baladd:"))
+async def adm_baladd(cb: CallbackQuery, state: FSMContext):
+    uid = cb.data.split(":", 2)[2]
+    await state.set_state(Bal.amount)
+    await state.update_data(bal_uid=uid, bal_op=1)
+    await cb.message.answer(f"➕ <code>{uid}</code> — কত ৳ যোগ করবেন? লিখুন:")
+    await cb.answer()
+
+
+@router.callback_query(F.data.startswith("adm:balsub:"))
+async def adm_balsub(cb: CallbackQuery, state: FSMContext):
+    uid = cb.data.split(":", 2)[2]
+    await state.set_state(Bal.amount)
+    await state.update_data(bal_uid=uid, bal_op=-1)
+    await cb.message.answer(f"➖ <code>{uid}</code> — কত ৳ কাটবেন? লিখুন:")
+    await cb.answer()
+
+
+@router.message(Bal.amount, F.text)
+async def bal_amount(message: Message, state: FSMContext):
+    if not admin_only(message):
+        return
+    t = message.text.strip().replace("৳", "").strip()
+    if not t.replace(".", "", 1).isdigit():
+        return await message.answer("শুধু সংখ্যা লিখুন:")
+    d = await state.get_data()
+    uid, op = d.get("bal_uid"), int(d.get("bal_op") or 1)
+    amt = float(t)
+    u = await db.rget(f"{db.USERS}/{uid}") or {}
+    new = max(0.0, float(u.get("balance") or 0) + op * amt)
+    await db.rpatch(f"{db.USERS}/{uid}", {"balance": new})
+    await state.clear()
+    await message.answer(f"✅ হয়ে গেছে\n💰 <code>{uid}</code> নতুন ব্যালেন্স: <b>{new} ৳</b>",
+                         reply_markup=kb.user_manage_kb(uid))
+    try:
+        await message.bot.send_message(int(uid),
+            f"⚖️ আপনার ব্যালেন্স {'যোগ' if op > 0 else 'কাটা'} হলো: <b>{amt} ৳</b>\n"
+            f"💰 নতুন ব্যালেন্স: <b>{new} ৳</b>")
+    except Exception:
+        pass
+
+
+@router.callback_query(F.data.startswith("adm:ban:"))
+async def adm_ban(cb: CallbackQuery):
+    uid = cb.data.split(":", 2)[2]
+    u = await db.rget(f"{db.USERS}/{uid}") or {}
+    new = not bool(u.get("banned"))
+    await db.rpatch(f"{db.USERS}/{uid}", {"banned": new})
+    await cb.answer("🚫 ব্যান করা হলো" if new else "✅ অব্যান করা হলো", show_alert=True)
+    try:
+        await cb.message.bot.send_message(int(uid),
+            "🚫 আপনাকে ব্যান করা হয়েছে! এডমিনের সাথে যোগাযোগ করুন।" if new
+            else "✅ আপনার ব্যান তুলে নেওয়া হয়েছে — আবার স্বাগতম!")
+    except Exception:
+        pass
+
+
+# ================= broadcast (any text/photo/video) =================
+
+@router.callback_query(F.data == "adm:bcast")
+async def adm_bcast(cb: CallbackQuery, state: FSMContext):
+    await state.set_state(Bcast.text)
+    await cb.message.answer("📢 সব ইউজারকে যা পাঠাবেন সেটা লিখুন/পাঠান\n(টেক্সট, ছবি বা ভিডিও — বাতিল /cancel)")
+    await cb.answer()
+
+
+@router.message(Bcast.text, F.text)
+async def bcast_text(message: Message, state: FSMContext):
+    if not admin_only(message):
+        return
+    await state.update_data(bc_kind="text", bc_text=message.text)
+    await message.answer("👁 প্রিভিউ উপরে ✓\n\nসব ইউজারকে পাঠাবেন?", reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="✅ সবাইকে পাঠান", callback_data="adm:bcgo")],
+        [InlineKeyboardButton(text="❌ বাতিল", callback_data="adm:menu")]]))
+
+
+@router.message(Bcast.text, F.photo)
+async def bcast_photo(message: Message, state: FSMContext):
+    if not admin_only(message):
+        return
+    await state.update_data(bc_kind="photo", bc_file=message.photo[-1].file_id, bc_cap=message.caption or "")
+    await message.answer("👁 প্রিভিউ উপরে ✓\n\nসব ইউজারকে পাঠাবেন?", reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="✅ সবাইকে পাঠান", callback_data="adm:bcgo")],
+        [InlineKeyboardButton(text="❌ বাতিল", callback_data="adm:menu")]]))
+
+
+@router.message(Bcast.text, F.video)
+async def bcast_video(message: Message, state: FSMContext):
+    if not admin_only(message):
+        return
+    await state.update_data(bc_kind="video", bc_file=message.video.file_id, bc_cap=message.caption or "")
+    await message.answer("👁 প্রিভিউ উপরে ✓\n\nসব ইউজারকে পাঠাবেন?", reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="✅ সবাইকে পাঠান", callback_data="adm:bcgo")],
+        [InlineKeyboardButton(text="❌ বাতিল", callback_data="adm:menu")]]))
+
+
+@router.callback_query(F.data == "adm:bcgo")
+async def adm_bcgo(cb: CallbackQuery, state: FSMContext):
+    d = await state.get_data()
+    await state.clear()
+    users = await db.rget(db.USERS) or {}
+    sent, failed = 0, 0
+    batch = list(users.keys())
+    for i, uid in enumerate(batch):
+        if not isinstance(users[uid], dict) or users[uid].get("banned"):
+            continue
+        try:
+            kind = d.get("bc_kind")
+            if kind == "text":
+                await cb.bot.send_message(int(uid), d.get("bc_text") or "")
+            elif kind == "photo":
+                await cb.bot.send_photo(int(uid), d.get("bc_file"), caption=d.get("bc_cap") or None)
+            elif kind == "video":
+                await cb.bot.send_video(int(uid), d.get("bc_file"), caption=d.get("bc_cap") or None)
+            sent += 1
+        except Exception:
+            failed += 1
+        if i % 25 == 24:
+            await asyncio.sleep(1)
+    await cb.message.answer(f"📢 ব্রডকাস্ট শেষ\n✅ গেছে: {sent} জন\n❌ ফেল: {failed} \n(ব্যান/ব্লক ইউজার বাদ)",
+                            reply_markup=kb.admin_menu())
+    await cb.answer("✅", show_alert=True)

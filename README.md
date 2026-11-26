@@ -73,7 +73,31 @@ Env for auto-verify:
 | `BINANCE_AUTO_CREDIT` | `0` = verified payments still need admin approval |
 | `BINANCE_VERIFY_DELAYS` | seconds between checks, e.g. `5,30,60,120,300` (default) |
 
-The "Buy" button inside packages still shows the payment-off notice until wired to wallet balance.
+## 🛠 Admin control (everything)
+
+Admin menu (`/admin` or 🛠 অ্যাডমিন button): packages CRUD + demo media, deposit
+management, **users**, **broadcast**, **settings**.
+
+### ⚙️ Settings
+- 🛒 **কেনা** ON/OFF — OFF হলে user রা প্যাকেজ কিনতে পারবে না ("⛔ কেনার সিস্টেম এখন বন্ধ আছে" screen)
+- 💰 **ডিপোজিট** ON/OFF — OFF হলে deposit menu/alert বন্ধ
+- 👥 **রেফার** ON/OFF — OFF হলে referral screen ও join bonus বন্ধ
+- 🎁 **রেফার বোনাস** — numeric value saved to `settings/referral_bonus`
+
+### 👥 User management
+- সব users-এর লিস্ট (last 20, tappable)
+- per-user card: name, @username, ID, balance, referral count, purchases, deposits, banned/active
+- ➕ **ব্যালেন্স যোগ** / ➖ **ব্যালেন্স কাটা** — FSM input, min 0, user gets a Telegram notification
+- 🚫 **ব্যান/অব্যান** — banned users cannot buy, cannot deposit, and are **skipped by broadcast**; user is notified
+
+### 📢 Broadcast
+- Text, photo (with caption), or video (with caption) → preview → ✅ সবাইকে পাঠান / ❌
+- sends to every user with 25/batch pacing, banned users skipped, admin gets a report with sent/failed counts
+
+### 🛒 Buy flow gates
+`cb_buy` checks in order: already owned → banned → `settings.buy_on` → confirm screen
+(price / balance / after-balance) → deduct → record purchase → notify admins.
+Low balance shows the exact shortfall + 💰 ডিপোজিট করুন (which respects `deposit_on`).
 
 ## 🌐 Hosting
 

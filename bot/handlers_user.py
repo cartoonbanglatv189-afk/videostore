@@ -124,10 +124,11 @@ async def cmd_start(message: Message, bot: Bot):
                 await db.rput(f"{db.USERS}/{uid}/referred_by", ref_id)
                 count = await db.rget(f"{db.USERS}/{ref_id}/ref_count") or 0
                 await db.rput(f"{db.USERS}/{ref_id}/ref_count", int(count) + 1)
-                # join bonus (admin-configurable; 0 = off)
+                # join bonus (admin settings; 0 = off)
+                st = await db.get_settings()
                 rcfg = await db.rget(db.REFERRAL) or {}
-                bonus = float(rcfg.get("bonus_join") or 0)
-                if bonus > 0:
+                bonus = float(st.get("referral_bonus") or rcfg.get("bonus_join") or 0)
+                if st.get("referral_on", True) and bonus > 0:
                     await db.credit_balance(ref_id, bonus)
                 try:
                     await bot.send_message(
@@ -165,9 +166,13 @@ async def show_help(message: Message):
 async def show_referral(message: Message, bot: Bot):
     me = await bot.get_me()
     uid = str(message.from_user.id)
+    st = await db.get_settings()
+    if not st.get("referral_on", True):
+        await message.answer("⛔ <b>রেফার সিস্টেম এখন বন্ধ আছে।</b>", reply_markup=_mm(message))
+        return
     me_db = await db.rget(f"{db.USERS}/{uid}") or {}
     rcfg = await db.rget(db.REFERRAL) or {}
-    bonus = float(rcfg.get("bonus_join") or 0)
+    bonus = float(st.get("referral_bonus") or rcfg.get("bonus_join") or 0)
     earn = me_db.get("balance") or 0
     count = me_db.get("ref_count") or 0
     link = referral_link(me.username, uid)
@@ -239,6 +244,18 @@ async def cb_buy(cb: CallbackQuery, bot: Bot):
     if await db.is_owned(uid, key):
         await cb.answer("\u2705 \u0986\u09aa\u09a8\u09bf \u0987 \u09aa\u09cd\u09af\u09be\u0995\u09c7\u099c\u099f\u09bf \u0995\u09bf\u09a8\u09c7\u099b\u09c7\u09a8", show_alert=True)
         return
+    st = await db.get_settings()
+    u0 = await db.rget(f"{db.USERS}/{uid}") or {}
+    if u0.get("banned"):
+        await cb.answer("\U0001f6ab \u0986\u09aa\u09a8\u09be\u0995\u09c7 \u09ac\u09cd\u09af\u09be\u09a8 \u0995\u09b0\u09be \u09b9\u09af\u09bc\u09c7\u099b\u09c7!", show_alert=True)
+        return
+    if not st.get("buy_on", True):
+        await cb.answer()
+        rows = [[InlineKeyboardButton(text="\U0001f5e0 \u098f\u09a1\u09ae\u09bf\u09a8\u09c7\u09b0 \u09b8\u09be\u09a5\u09c7 \u0995\u09a5\u09be \u09ac\u09b2\u09c1\u09a8", url=f"https://t.me/{config.ADMIN_CONTACT.lstrip('@')}")]] if config.ADMIN_CONTACT else []
+        rows.append([InlineKeyboardButton(text="\u2b05\ufe0f \u09ab\u09bf\u09b0\u09c1\u09a8", callback_data=f"pkg:{key}")])
+        await cb.message.answer("\u26d4 <b>\u0995\u09c7\u09a8\u09be\u09b0 \u09b8\u09bf\u09b8\u09cd\u099f\u09c7\u09ae \u098f\u0996\u09a8 \u09ac\u09a8\u09cd\u09a7 \u0986\u099b\u09c7\u0964</b>",
+                                reply_markup=InlineKeyboardMarkup(inline_keyboard=rows))
+        return
     name = p.get("name", "\u09aa\u09cd\u09af\u09be\u0995\u09c7\u099c")
     price = float(p.get("price") or 0)
     u = await db.rget(f"{db.USERS}/{uid}") or {}
@@ -284,8 +301,11 @@ async def cb_buyok(cb: CallbackQuery, bot: Bot):
     if await db.is_owned(uid, key):
         await cb.answer("\u2705 \u0986\u0997\u09c7\u0987 \u0995\u09bf\u09a8\u09be \u09b9\u09af\u09bc\u09c7\u099b\u09c7", show_alert=True)
         return
-    price = float(p.get("price") or 0)
     u = await db.rget(f"{db.USERS}/{uid}") or {}
+    if u.get("banned"):
+        await cb.answer("\U0001f6ab \u0986\u09aa\u09a8\u09be\u0995\u09c7 \u09ac\u09cd\u09af\u09be\u09a8 \u0995\u09b0\u09be \u09b9\u09af\u09bc\u09c7\u099b\u09c7!", show_alert=True)
+        return
+    price = float(p.get("price") or 0)
     balance = float(u.get("balance") or 0)
     if balance < price:
         await cb.answer("\u274c \u09ac\u09cd\u09af\u09be\u09b2\u09c7\u09a8\u09cd\u09b8 \u0985\u09aa\u09b0\u09cd\u09af\u09be\u09aa\u09cd\u09a4 \u2014 \u09a1\u09bf\u09aa\u09cb\u099c\u09bf\u099f \u0995\u09b0\u09c1\u09a8", show_alert=True)
