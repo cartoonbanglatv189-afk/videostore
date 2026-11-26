@@ -70,7 +70,8 @@ export default function PurchaseModal({ mode, target, userId, onClose, onSuccess
   function startVerifyDeadline() {
     if (verifyTimerRef.current) clearTimeout(verifyTimerRef.current)
     verifyTimerRef.current = setTimeout(() => {
-      setStep(s => (s === 'crypto-waiting' ? 'failed' : s))
+      setStep(s => ((s === 'crypto-waiting' || s === 'binance') ? 'failed' : s))
+      setFailReason(f => (f || ''))
       cleanup()
     }, 7 * 60 * 1000)
   }
@@ -136,6 +137,8 @@ export default function PurchaseModal({ mode, target, userId, onClose, onSuccess
       setPurchaseId(res.purchase_id)
       setCheckoutUrl(res.checkout_url)
       setStep('binance')
+      setFailReason('abandoned')
+      startVerifyDeadline()
       const tg = window.Telegram?.WebApp
       if (res.checkout_url) {
         if (tg?.openLink) tg.openLink(res.checkout_url)
@@ -161,6 +164,13 @@ export default function PurchaseModal({ mode, target, userId, onClose, onSuccess
   }
 
   async function payWithBinanceId() {
+    {
+      const tid = txnRef.trim()
+      if (!/^\d{6,25}$/.test(tid)) {
+        setError('That does not look like a Binance Transfer ID. It is a long number \u2014 open Binance Pay history and copy the Transfer ID number.')
+        return
+      }
+    }
     {
       const av = parseFloat(amountVal)
       const need = mode === 'package' ? (manualAmount || 0) : amount
@@ -216,6 +226,15 @@ export default function PurchaseModal({ mode, target, userId, onClose, onSuccess
   }
 
   async function payWithCrypto() {
+    {
+      const tx = txnRef.trim()
+      const net = ((detail && detail.wallet && detail.wallet.network) || '').toUpperCase()
+      const looksReal = net === 'TRC20' ? /^[0-9a-f]{64}$/i.test(tx) : /^0x[0-9a-f]{64}$/i.test(tx)
+      if (!looksReal) {
+        setError('That does not look like a valid Transaction Hash. A real TXID is a long string of 64 characters \u2014 copy the full Transaction Hash from your wallet or exchange (Binance/OKX) history.')
+        return
+      }
+    }
     {
       const av = parseFloat(amountVal)
       const need = mode === 'package' ? (manualAmount || 0) : amount
@@ -632,7 +651,7 @@ export default function PurchaseModal({ mode, target, userId, onClose, onSuccess
           <div className="ck-card ck-status">
             <div className="ck-fail">&#10005;</div>
             <div className="ck-title" style={{ marginBottom: 4 }}>
-              {failReason === 'low-amount' ? 'Payment Amount Too Low' : failReason === 'mismatch' ? 'Payment Details Mismatch' : failReason === 'unavailable' ? 'Verification Unavailable' : 'Payment Not Found'}
+              {failReason === 'low-amount' ? 'Payment Amount Too Low' : failReason === 'mismatch' ? 'Payment Details Mismatch' : failReason === 'unavailable' ? 'Verification Unavailable' : failReason === 'abandoned' ? 'Payment Not Completed' : 'Payment Not Found'}
             </div>
             <p className="ck-muted">
               {failReason === 'low-amount'
@@ -641,11 +660,13 @@ export default function PurchaseModal({ mode, target, userId, onClose, onSuccess
                   ? 'A transaction was found for this ID, but its details do not match (wrong network, token or recipient address). Please submit the correct Transaction ID — or contact support if you already paid.'
                   : failReason === 'unavailable'
                     ? 'Verification is temporarily unavailable for this method. Please try another payment method, or try again in a few minutes.'
-                    : 'No payment was found for the Transaction ID you submitted. If you have already paid, it may still be confirming on the network — please double-check the Transaction ID (TXID) and the network, then submit again. You have not been charged by us.'}
+                    : failReason === 'abandoned'
+                      ? 'We did not receive the payment for this Binance order within 7 minutes, so it was not completed. If you already paid, the video will unlock within a few minutes \u2014 otherwise simply start a new order.'
+                      : 'No payment was found for the Transaction ID you submitted. If you have already paid, it may still be confirming on the network — please double-check the Transaction ID (TXID) and the network, then submit again. You have not been charged by us.'}
             </p>
             <div className="ck-line" />
             <div className="ck-row"><span>Transaction ID</span><b>{txnRef.slice(0, 18)}{txnRef.length > 18 ? '…' : ''}</b></div>
-            <div className="ck-row"><span>Status</span><b style={{ color: '#ef4444' }}>{failReason === 'low-amount' ? 'Amount Too Low' : failReason === 'mismatch' ? 'Details Mismatch' : failReason === 'unavailable' ? 'Unavailable' : 'Not Found'}</b></div>
+            <div className="ck-row"><span>Status</span><b style={{ color: '#ef4444' }}>{failReason === 'low-amount' ? 'Amount Too Low' : failReason === 'mismatch' ? 'Details Mismatch' : failReason === 'unavailable' ? 'Unavailable' : failReason === 'abandoned' ? 'Not Completed' : 'Not Found'}</b></div>
             <button className="ck-primary" onClick={() => { setStep('checkout'); setDetail(null); setTxnRef(''); setError('') }}>
               Try Another Payment Method
             </button>
