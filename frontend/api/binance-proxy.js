@@ -1,21 +1,18 @@
-// Vercel Serverless Function — Binance API relay.
+// Vercel Serverless Function (ESM) — Binance API relay.
 //
 // Binance geo-blocks Render's datacenter IP (HTTP 451) and the region cannot
 // be changed on free instances. This function forwards the backend's signed
-// Binance calls through Vercel (Function Region must be Frankfurt/Singapore —
-// Settings -> Functions -> Function Region).
+// Binance calls through Vercel (Function Region = Frankfurt/Singapore).
 //
 // On Render set:
 //   BINANCE_RELAY=https://<your-site>.vercel.app/api/binance-proxy?s=bnc9xk4vm2q7
 //
 // Call format:
 //   /api/binance-proxy?s=<SECRET>&p=<url-encoded target path + query>
-//     p starting /sapi        -> https://api.binance.com/...
-//     p starting /binancepay  -> https://bpay.binanceapi.com/...
 
 const SECRET = 'bnc9xk4vm2q7'
 
-module.exports = async (req, res) => {
+export default async function handler(req, res) {
   try {
     const url = new URL(req.url, 'https://relay.local')
     if (url.searchParams.get('s') !== SECRET) {
