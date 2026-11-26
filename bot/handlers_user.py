@@ -86,7 +86,7 @@ async def show_package(cb_or_msg, key: str, edit: bool = False):
         await cb_or_msg.answer(text, reply_markup=kb_)
 
 
-@router.message(CommandStart)
+@router.message(CommandStart())
 async def cmd_start(message: Message, bot: Bot):
     me = await bot.get_me()
     uid = str(message.from_user.id)
