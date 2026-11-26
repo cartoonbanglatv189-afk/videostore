@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import hmac
 import json
+import os
 import secrets
 import time
 from typing import Any
@@ -10,6 +11,21 @@ from typing import Any
 import httpx
 
 BASE_URL = "https://bpay.binanceapi.com"
+
+
+def _client_kwargs() -> dict:
+    """Common httpx client options.
+
+    Binance geo-blocks many datacenter IPs (Render US returns HTTP 451 on all
+    sapi hosts). An optional BINANCE_PROXY env var (e.g. http://host:port)
+    routes Binance traffic through an allowed relay so auto-verify keeps
+    working on any host.
+    """
+    kwargs: dict[str, Any] = {"timeout": 20}
+    proxy = (os.environ.get("BINANCE_PROXY") or "").strip()
+    if proxy:
+        kwargs["proxy"] = proxy
+    return kwargs
 
 
 def _sign(secret: str, payload: str) -> str:
@@ -45,7 +61,7 @@ async def create_order(cfg: dict, amount: float, trade_no: str, goods_name: str,
         },
     }
     headers, _ = _headers(cfg.get("binance_api_key", ""), cfg.get("binance_api_secret", ""), body)
-    async with httpx.AsyncClient(timeout=20) as client:
+    async with httpx.AsyncClient(**_client_kwargs()) as client:
         resp = await client.post(f"{BASE_URL}/binancepay/openapi/v3/order", headers=headers, json=body)
         return resp.json()
 
@@ -53,7 +69,7 @@ async def create_order(cfg: dict, amount: float, trade_no: str, goods_name: str,
 async def query_order(cfg: dict, trade_no: str) -> Any:
     body = {"merchantTradeNo": trade_no}
     headers, _ = _headers(cfg.get("binance_api_key", ""), cfg.get("binance_api_secret", ""), body)
-    async with httpx.AsyncClient(timeout=20) as client:
+    async with httpx.AsyncClient(**_client_kwargs()) as client:
         resp = await client.post(f"{BASE_URL}/binancepay/openapi/v2/order/query", headers=headers, json=body)
         return resp.json()
 
@@ -90,7 +106,7 @@ async def query_pay_transactions(cfg: dict, limit: int = 50) -> dict:
     resp = None
     last_status = None
     try:
-        async with httpx.AsyncClient(timeout=20) as client:
+        async with httpx.AsyncClient(**_client_kwargs()) as client:
             for host in hosts:
                 try:
                     resp = await client.get(f"{host}/sapi/v1/pay/transactions?{qs}", headers=headers)
@@ -140,7 +156,7 @@ async def query_deposit_history(cfg: dict, limit: int = 50) -> dict:
     resp = None
     last_status = None
     try:
-        async with httpx.AsyncClient(timeout=20) as client:
+        async with httpx.AsyncClient(**_client_kwargs()) as client:
             for host in hosts:
                 try:
                     resp = await client.get(f"{host}/sapi/v1/capital/deposit/hisrec?{qs}", headers=headers)
