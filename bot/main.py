@@ -10,7 +10,7 @@ from aiogram.enums import ParseMode
 from aiogram.fsm.storage.memory import MemoryStorage
 
 from bot import config
-from bot import handlers_admin, handlers_user
+from bot import handlers_admin, handlers_deposit, handlers_user
 
 
 async def main() -> None:
@@ -26,6 +26,7 @@ async def main() -> None:
 
     # admin router FIRST so admin states win over the generic user fallback
     dp.include_router(handlers_admin.router)
+    dp.include_router(handlers_deposit.router)
     dp.include_router(handlers_user.router)
 
     if config.ADMIN_IDS:

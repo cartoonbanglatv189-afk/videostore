@@ -46,6 +46,8 @@ async def rdelete(path: str) -> bool:
 PACKAGES = f"{config.BASE}/packages"
 USERS = f"{config.BASE}/users"
 REFERRAL = f"{config.BASE}/referral_config"
+DEPOSITS = f"{config.BASE}/deposits"
+DEPOSIT_METHODS = f"{config.BASE}/deposit_methods"
 
 
 async def list_packages() -> dict:

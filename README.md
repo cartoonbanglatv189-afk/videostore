@@ -26,6 +26,7 @@ Env vars:
 | `ADMIN_IDS` | ✅ | Comma-separated Telegram numeric IDs, e.g. `123456789,987654321` |
 | `ADMIN_CONTACT` | — | Admin @username shown on the "payment off" notice |
 | `FIREBASE_DB_URL` | — | Defaults to the project's live RTDB (asia-southeast1) |
+| `BINANCE_API_KEY` / `BINANCE_API_SECRET` | — | Enables deposit auto-verify (see below) |
 
 Local run (long polling):
 
@@ -41,15 +42,38 @@ All bot data lives under the `vzbot/` namespace (old project nodes are untouched
 vzbot/packages/<key>  = { name, price, description, created_at,
                           demo_media: { <pushkey>: { type: "photo"|"video", file_id?, url? } } }
 vzbot/users/<uid>     = { joined_at, first_name, username, referred_by?, ref_count?, balance? }
-vzbot/referral_config = { bonus_join }   # 0 = off
+vzbot/referral_config  = { bonus_join }   # 0 = off
+vzbot/deposit_methods  = { <key>: { name, network, address, min_amount } }
+vzbot/deposits/<key>   = { uid, method, method_name, asset, amount, txid, status,
+                           created_at, bn_snapshot{kind,code,asset,address,label,offchain_ok,t0},
+                           bn_state?, review_reason?, review_detail?,
+                           auto_verified?, approved_by?, approved_at? }
+vzbot/used_txids/<k>   = { dep_id, uid, amount, at }   # duplicate protection
 ```
 
-## 🔌 Deposit / Payment
+## 💰 Deposit with Binance auto-verify (ON)
 
-**Currently OFF by design.** The `buy:` button shows a "payment coming soon" message with an
-admin-contact button. The structure is ready to plug in Binance Pay / ID / TRC20/BEP20
-auto-verify later — deposit matching and idempotency patterns are already proven from the
-previous build and can be re-introduced on request.
+Users: 💰 ডিপোজিট → pick a method → enter amount ($) → pay to the shown address → submit TXID.
+The bot calls the signed Binance API several times over ~a minute:
+- **matched** (right ID/asset/amount/network/address/confirmations) → balance credited **automatically**, user notified
+- **mismatch / overpaid / wrong network** → goes to the admin as Manual Review with the exact reason
+- **not found after all retries** → stays pending for the admin (never an automatic rejection)
+- duplicate TXIDs (approved or earlier pending) are **blocked** — a reference can never credit twice
+- off-chain/internal transfers ("Off-chain transfer <id>") are verified via deposit history, Binance Pay
+  via Pay history — same rules as the original engine
+
+Admin (💰 ডিপোজিট in the admin menu): approve/reject pending deposits, manage deposit methods.
+
+Env for auto-verify:
+
+| Variable | Description |
+|---|---|
+| `BINANCE_API_KEY` / `BINANCE_API_SECRET` | Binance read-only API keys — required for auto-verify |
+| `BINANCE_AUTO_VERIFY` | `0` = verification never runs (all manual) |
+| `BINANCE_AUTO_CREDIT` | `0` = verified payments still need admin approval |
+| `BINANCE_VERIFY_DELAYS` | seconds between checks, e.g. `5,30,60,120,300` (default) |
+
+The "Buy" button inside packages still shows the payment-off notice until wired to wallet balance.
 
 ## 🌐 Hosting
 
