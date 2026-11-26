@@ -254,9 +254,9 @@ export default function PurchaseModal({ mode, target, userId, onClose, onSuccess
             ...(isBackendEnabled()
               ? [{ key: 'balance', icon: 'fas fa-wallet', ico: 'balance', title: 'Balance দিয়ে কিনুন', sub: `${balance} USDT ${balance < amount ? '— অপর্যাপ্ত ব্যালেন্স, প্রথমে Deposit করুন' : 'আছে'}` }]
               : []),
-            ...(payConfig.binance_enabled !== false && binancePayConfigured
+            ...(payConfig.binance_enabled !== false
               ? [
-                  { key: 'binance-pay', icon: 'fas fa-bolt', ico: 'binance', title: 'Binance Pay', sub: 'চেকআউট পেজে পেমেন্ট — সম্পূর্ণ অটো ভেরিফাই' },
+                  ...(binancePayConfigured ? [{ key: 'binance-pay', icon: 'fas fa-bolt', ico: 'binance', title: 'Binance Pay', sub: 'চেকআউট পেজে পেমেন্ট — সম্পূর্ণ অটো ভেরিফাই' }] : []),
                   ...(binanceIds.length > 0 ? [{ key: 'binance-id', icon: 'fas fa-id-badge', ico: 'binance', title: 'Binance ID (Pay ID)', sub: 'Pay ID-তে USDT পাঠিয়ে Transfer ID দিন — অটো ভেরিফাই' }] : []),
                   ...(payConfig.crypto_enabled !== false && cryptoWallets.length > 0 ? [{ key: 'crypto', icon: 'fas fa-coins', ico: 'crypto', title: 'Crypto Wallet — TRC20/BEP20', sub: 'ঠিকানায় USDT পাঠিয়ে TXID দিন — অটো ভেরিফাই' }] : [])
                 ]
