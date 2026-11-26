@@ -135,6 +135,14 @@ export default function ProfileSection({ userId }) {
 
       {hasDepMethods && (<>
       <h4 style={{ color: '#fda4af', margin: '18px 0 8px' }}>⬇️ Deposit করুন (USDT)</h4>
+      <div style={{ fontSize: 12, color: 'var(--text-muted)', background: 'var(--bg-inset)', border: 'var(--border)', borderRadius: 12, padding: '10px 13px', lineHeight: 1.7, marginBottom: 12 }}>
+        <b style={{ color: 'var(--text-main)' }}>How to Deposit:</b>
+        <div>1. Choose a method below — Binance Pay ID or a crypto network (e.g. TRC20 / BEP20).</div>
+        <div>2. Copy the Pay ID or wallet address.</div>
+        <div>3. Send USDT from your Binance / crypto wallet — send an amount equal to or more than you deposit. Any extra goes to your Balance automatically.</div>
+        <div>4. Copy the Transfer ID or Transaction Hash (TXID) from that payment.</div>
+        <div>5. Enter the amount, paste the TXID, and tap Submit — your Balance updates automatically within 1–5 minutes.</div>
+      </div>
 
       {depStatus === 'verifying' ? (
         <div className="manual-info">
