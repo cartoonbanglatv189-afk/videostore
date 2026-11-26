@@ -53,6 +53,15 @@ def _transfer_id_plausible(ref: str) -> bool:
     return bool(re.fullmatch(r"\d{6,25}", str(ref or "").strip()))
 
 
+
+def _offchain_digits(ref: str) -> str:
+    """Users often paste 'Off-chain transfer 435223450025' from Binance receipts.
+    If the reference points to an off-chain Binance Pay transfer, return its numeric ID."""
+    t = str(ref or "").strip()
+    if re.fullmatch(r"(?i)off[\s\-]*chain[\s\-]*transfer[\s\-]*(\d{6,25})", t):
+        return re.search(r"(\d{6,25})", t).group(1)
+    return t
+
 async def _ref_already_used(ref: str, exclude_purchase: str = "", exclude_deposit: str = "") -> bool:
     """True if the same transaction reference was already submitted anywhere (purchases or deposits)."""
     t = str(ref or "").strip().lower()
@@ -337,6 +346,15 @@ async def crypto_submit(payload: dict) -> dict:
     if not network or not txid:
         raise HTTPException(status_code=400, detail="network and txid required")
     if not _txid_plausible(txid, network):
+        # Not a blockchain hash — but users frequently paste the Binance receipt
+        # line ("Off-chain transfer 435223450025") here. Accept it and verify
+        # through Binance Pay transfer history instead of the blockchain.
+        norm = _offchain_digits(txid)
+        if re.fullmatch(r"\d{6,25}", norm):
+            purchase["transaction_ref"] = norm
+            purchase["method"] = "binance_id"
+            purchase_id = await push_data("purchases", purchase)
+            return {"ok": True, "purchase_id": purchase_id, "auto": True, "rerouted": "binance-pay"}
         return {"ok": False, "reason": "invalid-txid"}
     if await _ref_already_used(txid):
         return {"ok": False, "reason": "duplicate-txid"}
@@ -353,6 +371,34 @@ async def crypto_check(purchase_id: str) -> dict:
         raise HTTPException(status_code=404, detail="Purchase not found")
     if purchase.get("status") == "approved":
         return {"ok": True, "status": "approved"}
+
+    if not purchase.get("crypto_network"):
+        # Re-routed off-chain Binance Pay transfer — match against the merchant's
+        # received Pay transfers instead of the blockchain.
+        cfg0 = (await read_data("payments_config")) or {}
+        match = await _match_binance_pay(
+            str(purchase.get("transaction_ref") or ""),
+            float(purchase.get("amount") or 0),
+            "USDT",
+            cfg0,
+        )
+        if match.get("ok"):
+            matched_tx = str(match.get("tx_id") or "").strip()
+            now = int(time.time() * 1000)
+            if matched_tx:
+                if await read_data(f"used_binance_txids/{matched_tx}"):
+                    await update_data(f"purchases/{purchase_id}", {"status": "rejected", "reject_reason": "duplicate-txid"})
+                    return {"ok": False, "status": "rejected", "reason": "duplicate-txid"}
+                await update_data(f"used_binance_txids/{matched_tx}", {"purchase_id": purchase_id, "ts": now})
+            await update_data(
+                f"purchases/{purchase_id}",
+                {"status": "approved", "verified_at": now, "verified_by": "auto-binance-pay", "matched_transaction_id": matched_tx or None},
+            )
+            await apply_purchase({**purchase, "status": "approved"})
+            await _credit_excess(str(purchase.get("user_id") or ""), float(purchase.get("amount") or 0), match.get("amount"))
+            await reward_referrer_for_user(str(purchase.get("user_id") or ""), "purchase", purchase_id)
+            return {"ok": True, "status": "approved"}
+        return {"ok": True, "status": purchase.get("status") or "pending", "reason": "tx-not-found"}
 
     network = str(purchase.get("crypto_network") or "").upper()
     verifier = AUTO_VERIFY_NETWORKS.get(network)

@@ -348,12 +348,12 @@ export default function PurchaseModal({ mode, target, userId, onClose, onSuccess
 
   function submitFailMessage(reason) {
     if (reason === 'duplicate-txid') {
-      return 'This Transaction ID has already been submitted before. Each payment can only be used once " + DASH + " please submit the Transaction ID of your new payment.'
+      return 'This Transaction ID has already been submitted before. Each payment can only be used once — please submit the Transaction ID of your new payment.'
     }
     if (reason === 'invalid-txid') {
-      return 'This Transaction ID does not look real. A crypto TXID is a long 64-character hash, and a Binance Transfer ID is a long number " + DASH + " copy it fully from your payment history.'
+      return 'This Transaction ID does not look real. A crypto TXID is a long 64-character hash, and a Binance Transfer ID is a long number — copy it fully from your payment history.'
     }
-    return 'Submit failed " + DASH + " please try again'
+    return 'Submit failed — please try again'
   }
 
   function copyVal(v) {
