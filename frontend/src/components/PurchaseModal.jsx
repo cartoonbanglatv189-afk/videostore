@@ -168,7 +168,8 @@ export default function PurchaseModal({ mode, target, userId, onClose, onSuccess
       setError('Payments are not available right now — please try again later.')
       return
     }
-    if (!selectedWallet) {
+    const wallet0 = detail?.wallet || selectedWallet
+    if (!wallet0 || !wallet0.network) {
       setError('Please select a network first')
       return
     }
@@ -180,7 +181,7 @@ export default function PurchaseModal({ mode, target, userId, onClose, onSuccess
     try {
       const ref0 =
         mode === 'package' ? { user_id: userId, package_key: target._fbKey } : { user_id: userId, video_id: target._fbKey || target.id }
-      const res = await api.cryptoSubmit({ ...ref0, network: selectedWallet.network, txid: txnRef.trim() })
+      const res = await api.cryptoSubmit({ ...ref0, network: wallet0.network, txid: txnRef.trim() })
       if (!res.ok) {
         setError('Submit failed — please try again')
         return
@@ -251,6 +252,7 @@ export default function PurchaseModal({ mode, target, userId, onClose, onSuccess
     setTxnRef('')
     setSender('')
     if (d.kind === 'binance-id') setSelectedPayId(binanceIds[0]?.id || '')
+    if (d.kind === 'crypto') setSelectedWallet(d.wallet)
     setStep(d.kind === 'binance-pay' ? 'binance' : 'details')
     if (d.kind === 'binance-pay') payWithBinance()
   }
