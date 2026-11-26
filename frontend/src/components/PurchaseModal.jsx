@@ -191,7 +191,7 @@ export default function PurchaseModal({ mode, target, userId, onClose, onSuccess
     try {
       const ref0 =
         mode === 'package' ? { user_id: userId, package_key: target._fbKey } : { user_id: userId, video_id: target._fbKey || target.id }
-      const res = await api.binanceIdSubmit({ ...ref0, transfer_id: txnRef.trim() })
+      const res = await api.binanceIdSubmit({ ...ref0, transfer_id: txnRef.trim(), sender: sender.trim() })
       if (!res.ok) {
         setError('Submit failed — please try again')
         return
@@ -260,7 +260,7 @@ export default function PurchaseModal({ mode, target, userId, onClose, onSuccess
     try {
       const ref0 =
         mode === 'package' ? { user_id: userId, package_key: target._fbKey } : { user_id: userId, video_id: target._fbKey || target.id }
-      const res = await api.cryptoSubmit({ ...ref0, network: wallet0.network, txid: txnRef.trim() })
+      const res = await api.cryptoSubmit({ ...ref0, network: wallet0.network, txid: txnRef.trim(), sender: sender.trim() })
       if (!res.ok) {
         setError('Submit failed — please try again')
         return
@@ -307,7 +307,7 @@ export default function PurchaseModal({ mode, target, userId, onClose, onSuccess
     setError('')
     const ref0 =
       mode === 'package' ? { user_id: userId, package_key: target._fbKey } : { user_id: userId, video_id: target._fbKey || target.id }
-    const payload = { ...ref0, transaction_ref: txnRef }
+    const payload = { ...ref0, transaction_ref: txnRef, sender: sender.trim() }
     let purchase_id = null
     if (isBackendEnabled()) {
       try {
@@ -552,7 +552,7 @@ export default function PurchaseModal({ mode, target, userId, onClose, onSuccess
 
               <div className="ck-title" style={{ fontSize: 15, marginBottom: 8 }}>Submit Payment Information</div>
 
-              <label className="ck-label" style={{ marginTop: 8 }}>Your Sender Number / Account ID</label>
+              <label className="ck-label" style={{ marginTop: 8 }}>Your Sender Number / Account ID (optional)</label>
               <input
                 className="modal-input"
                 value={sender}
