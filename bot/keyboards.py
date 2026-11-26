@@ -23,11 +23,18 @@ def packages_kb(pkgs: dict) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
-def package_kb(key: str, demo_count: int) -> InlineKeyboardMarkup:
+def package_kb(key: str, demo_count: int, owned: bool = False) -> InlineKeyboardMarkup:
     demo_label = f"🎁 সব ডেমো দেখুন ({demo_count})" if demo_count else "🎁 ডেমো শীঘ্রই আসছে"
+    buy_row = ([InlineKeyboardButton(text="✅ কেনা হয়েছে", callback_data="noop")]
+               if owned else
+               [InlineKeyboardButton(text="🛒 কিনুন", callback_data=f"buy:{key}")])
+    if demo_count:
+        demo_row = [InlineKeyboardButton(text=demo_label, callback_data=f"demo:{key}")]
+    else:
+        demo_row = [InlineKeyboardButton(text=demo_label, callback_data="noop")]
     return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text=demo_label, callback_data=f"demo:{key}" if demo_count else "noop")],
-        [InlineKeyboardButton(text="🛒 কিনুন", callback_data=f"buy:{key}")],
+        demo_row,
+        buy_row,
         [InlineKeyboardButton(text="⬅️ প্যাকেজের তালিকা", callback_data="pkgs")],
     ])
 

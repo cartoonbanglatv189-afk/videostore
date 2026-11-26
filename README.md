@@ -7,7 +7,7 @@ Everything — including the admin panel — lives inside the bot itself.
 
 - 📦 **Packages** — admin creates packages (name, price ৳, description) right inside the bot; users browse and open them
 - 🎁 **Demo with ALL media together** — admin adds many videos + photos per package (Telegram uploads **and** pasted links both work); users press one button and see every demo as Telegram albums
-- 🛒 **Buy** — buy button on every package (payment/deposit system currently **OFF**; shows a notice + admin contact)
+- 🛒 **Buy** — buy with wallet balance: confirm screen → balance deducted → purchase recorded (`vzbot/purchases/<uid>/<pkg_key>`) → admin notified. Insufficient balance → deposit shortcut shown (real amount shortfall). Already owned → package card shows '✅ কেনা হয়েছে' with no buy button.
 - 👥 **Referral system** — every user gets a `?start=ref_<id>` link, referrer count + balance, optional join bonus
 - 🔔 **Update notifications** — after adding media, admin sends a broadcast to ALL users: which package, how many new videos/photos, with a **Buy/View** button that deep-links straight into the package (`?start=pkg_<key>`)
 - 🛠 **In-bot admin panel** — `/admin`: create/edit/delete packages, add/manage demo media, user count, broadcast

@@ -8,6 +8,7 @@ from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMar
 
 from bot import config, db
 from bot.handlers_admin import _mm
+from bot.handlers_deposit import _notify_admins
 from bot import keyboards as kb
 
 router = Router()
@@ -27,6 +28,11 @@ HELP = (
     "🛒 <b>কিনুন</b> — প্যাকেজ কিনে সম্পূর্ণ কালেকশন আনলক করুন।\n"
     "👥 <b>রেফার</b> — নিজের লিংক বন্ধুদের পাঠান, রেফার করলে ব্যালেন্স বাড়বে।"
 )
+
+
+def _money(v) -> str:
+    f = float(v or 0)
+    return str(int(f)) if f == int(f) else f"{f:.2f}"
 
 
 def referral_link(bot_username: str, uid: str) -> str:
@@ -54,7 +60,13 @@ async def show_package_msg(message: Message, key: str):
         lines.append("\U0001f381 \u09ab\u09cd\u09b0\u09bf \u09a1\u09c7\u09ae\u09cb: " + " + ".join(demo_line))
     if p.get("description"):
         lines.append("\n\U0001f4c4 " + str(p.get("description")))
-    await message.answer("\n".join(lines), reply_markup=kb.package_kb(key, total))
+    uid = str(message.from_user.id)
+    if await db.is_owned(uid, key):
+        lines.append("\n\u2705 <b>\u0986\u09aa\u09a8\u09bf \u0987 \u09aa\u09cd\u09af\u09be\u0995\u09c7\u099c\u099f\u09bf \u0995\u09bf\u09a8\u09c7\u099b\u09c7\u09a8</b>")
+        owned = True
+    else:
+        owned = False
+    await message.answer("\n".join(lines), reply_markup=kb.package_kb(key, total, owned=owned))
 
 
 async def show_package(cb_or_msg, key: str, edit: bool = False):
@@ -79,8 +91,17 @@ async def show_package(cb_or_msg, key: str, edit: bool = False):
         lines.append(f"🎁 ফ্রি ডেমো: {' + '.join(demo_line)}")
     if p.get("description"):
         lines.append(f"\n📄 {p.get('description')}")
+    uid = str(cb_or_msg.from_user.id)
+    if await db.is_owned(uid, key):
+        lines.append("\n✅ <b>আপনি ই প্যাকেজটি কিনেছেন</b>")
+        owned = True
+    else:
+        owned = False
+        bal = await db.rget(f"{db.USERS}/{uid}") or {}
+        if bal.get("balance"):
+            lines.append(f"💰 আপনার ব্যালেন্স: <b>{bal.get('balance')} ৳</b>")
     text = "\n".join(lines)
-    kb_ = kb.package_kb(key, total)
+    kb_ = kb.package_kb(key, total, owned=owned)
     if isinstance(cb_or_msg, CallbackQuery):
         await cb_or_msg.message.edit_text(text, reply_markup=kb_)
     else:
@@ -203,26 +224,87 @@ async def cb_demo(cb: CallbackQuery, bot: Bot):
     for i in range(10, len(items), 10):
         await asyncio.sleep(1)
         await bot.send_media_group(cb.from_user.id, [mk(m) for m in items[i:i + 10]])
-    await cb.message.answer("⬆️ উপরে সব ডেমো দেখুন 👆", reply_markup=kb.package_kb(key, len(items)))
+    owned = await db.is_owned(str(cb.from_user.id), key)
+    await cb.message.answer("⬆️ উপরে সব ডেমো দেখুন 👆", reply_markup=kb.package_kb(key, len(items), owned=owned))
 
 
 @router.callback_query(F.data.startswith("buy:"))
 async def cb_buy(cb: CallbackQuery, bot: Bot):
     key = cb.data.split(":", 1)[1]
+    uid = str(cb.from_user.id)
     p = await db.get_package(key)
-    name = p.get("name", "প্যাকেজ")
-    lines = [f"🛒 <b>{name}</b> কিনতে চান?\n"]
-    lines.append(
-        "🚫 <b>পেমেন্ট সিস্টেম আপাতত বন্ধ আছে।</b>\n"
-        "খুব শীঘ্রই কিনার সিস্টেম চালু হবে — ততক্ষণ এডমিনের সাথে সরাসরি কথা বলুন।"
-    )
-    kb_ = kb.buy_off_kb()
+    if not p:
+        await cb.answer("\u274c \u09aa\u09cd\u09af\u09be\u0995\u09c7\u099c\u099f\u09bf \u0986\u09b0 \u09a8\u09c7\u0987", show_alert=True)
+        return
+    if await db.is_owned(uid, key):
+        await cb.answer("\u2705 \u0986\u09aa\u09a8\u09bf \u0987 \u09aa\u09cd\u09af\u09be\u0995\u09c7\u099c\u099f\u09bf \u0995\u09bf\u09a8\u09c7\u099b\u09c7\u09a8", show_alert=True)
+        return
+    name = p.get("name", "\u09aa\u09cd\u09af\u09be\u0995\u09c7\u099c")
+    price = float(p.get("price") or 0)
+    u = await db.rget(f"{db.USERS}/{uid}") or {}
+    balance = float(u.get("balance") or 0)
+    if balance >= price and price >= 0:
+        await cb.answer()
+        await cb.message.answer(
+            f"\U0001f6d2 <b>{name}</b> \u0995\u09bf\u09a8\u09ac\u09c7\u09a8?\n\n"
+            f"\U0001f4b0 \u09aa\u09cd\u09af\u09be\u0995\u09c7\u099c\u09c7\u09b0 \u09a6\u09be\u09ae: <b>{_money(price)} \u09f3</b>\n"
+            f"\U0001f4b0 \u0986\u09aa\u09a8\u09be\u09b0 \u09ac\u09cd\u09af\u09be\u09b2\u09c7\u09a8\u09cd\u09b8: <b>{_money(balance)} \u09f3</b>\n"
+            f"\U0001f4b0 \u0995\u09c7\u09a8\u09be\u09b0 \u09aa\u09b0\u09c7 \u09ac\u09cd\u09af\u09be\u09b2\u09c7\u09a8\u09cd\u09b8: <b>{_money(balance - price)} \u09f3</b>\n\n"
+            "\u26a0\ufe0f \u0995\u09a8\u09ab\u09be\u09b0\u09cd\u09ae \u0995\u09b0\u09b2\u09c7 \u09ac\u09cd\u09af\u09be\u09b2\u09c7\u09a8\u09cd\u09b8 \u09a5\u09c7\u0995\u09c7 \u099f\u09be\u0995\u09be \u0995\u099f\u09be \u09b9\u09ac\u09c7\u0964",
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text=f"\u2705 \u0995\u09bf\u09a8\u09c1\u09a8 ({_money(price)} \u09f3)", callback_data=f"buyok:{key}")],
+                [InlineKeyboardButton(text="\u274c \u09ac\u09be\u09a4\u09bf\u09b2", callback_data=f"pkg:{key}")],
+            ]))
+        return
+    short = price - balance
+    await cb.answer()
+    rows = [[InlineKeyboardButton(text="\U0001f4b0 \u09a1\u09bf\u09aa\u09cb\u099c\u09bf\u099f \u0995\u09b0\u09c1\u09a8", callback_data="dep:menu")]]
     if config.ADMIN_CONTACT:
-        kb_ = InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="👤 এডমিনের সাথে কথা বলুন", url=f"https://t.me/{config.ADMIN_CONTACT.lstrip('@')}")],
-            [InlineKeyboardButton(text="⬅️ প্যাকেজে ফিরুন", callback_data=f"pkg:{key}")],
-        ])
-    await cb.message.answer("\n".join(lines), reply_markup=kb_)
+        rows.append([InlineKeyboardButton(text="\U0001f465 \u098f\u09a1\u09ae\u09bf\u09a8\u09c7\u09b0 \u09b8\u09be\u09a5\u09c7 \u0995\u09a5\u09be \u09ac\u09b2\u09c1\u09a8",
+                       url=f"https://t.me/{config.ADMIN_CONTACT.lstrip('@')}")])
+    rows.append([InlineKeyboardButton(text="\u2b05\ufe0f \u09aa\u09cd\u09af\u09be\u0995\u09c7\u099c\u09c7 \u09ab\u09bf\u09b0\u09c1\u09a8", callback_data=f"pkg:{key}")])
+    await cb.message.answer(
+        f"\U0001f6d2 <b>{name}</b>\n\n"
+        f"\U0001f4b0 \u09aa\u09cd\u09af\u09be\u0995\u09c7\u099c\u09c7\u09b0 \u09a6\u09be\u09ae: <b>{_money(price)} \u09f3</b>\n"
+        f"\U0001f4b0 \u0986\u09aa\u09a8\u09be\u09b0 \u09ac\u09cd\u09af\u09be\u09b2\u09c7\u09a8\u09cd\u09b8: <b>{_money(balance)} \u09f3</b>\n"
+        f"\u274c \u09ac\u09cd\u09af\u09be\u09b2\u09c7\u09a8\u09cd\u09b8 \u0985\u09aa\u09b0\u09cd\u09af\u09be\u09aa\u09cd\u09a4 \u2014 \u0986\u09b0 <b>{_money(short)} \u09f3</b> \u09a6\u09b0\u0995\u09be\u09b0\u0964\n\n"
+        "\U0001f4b0 \u09a1\u09bf\u09aa\u09cb\u099c\u09bf\u099f \u0995\u09b0\u09c7 \u09ac\u09cd\u09af\u09be\u09b2\u09c7\u09a8\u09cd\u09b8 \u09ac\u09be\u09dc\u09bf\u09af\u09bc\u09c7 \u09a8\u09bf\u09a8, \u09a4\u09be\u09b0\u09aa\u09b0 \u09b8\u09b9\u099c\u09c7\u0987 \u0995\u09bf\u09a8\u09a4\u09c7 \u09aa\u09be\u09b0\u09ac\u09c7\u09a8\u0964\n"
+        "\u2705 Binance \u09a1\u09bf\u09aa\u09cb\u099c\u09bf\u099f \u0985\u09be\u099f\u09cb-\u09ad\u09c7\u09b0\u09bf\u09ab\u09be\u0987 \u09b9\u09af\u09bc \u2014 \u0995\u09bf\u099b\u09c1 \u09b8\u09c7\u0995\u09c7\u09a8\u09cd\u09a1\u09c7\u09b0 \u09ae\u09a7\u09cd\u09af\u09c7\u0964",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=rows))
+
+
+@router.callback_query(F.data.startswith("buyok:"))
+async def cb_buyok(cb: CallbackQuery, bot: Bot):
+    key = cb.data.split(":", 1)[1]
+    uid = str(cb.from_user.id)
+    p = await db.get_package(key)
+    if not p:
+        await cb.answer("\u274c \u09aa\u09cd\u09af\u09be\u0995\u09c7\u099c\u099f\u09bf \u0986\u09b0 \u09a8\u09c7\u0987", show_alert=True)
+        return
+    if await db.is_owned(uid, key):
+        await cb.answer("\u2705 \u0986\u0997\u09c7\u0987 \u0995\u09bf\u09a8\u09be \u09b9\u09af\u09bc\u09c7\u099b\u09c7", show_alert=True)
+        return
+    price = float(p.get("price") or 0)
+    u = await db.rget(f"{db.USERS}/{uid}") or {}
+    balance = float(u.get("balance") or 0)
+    if balance < price:
+        await cb.answer("\u274c \u09ac\u09cd\u09af\u09be\u09b2\u09c7\u09a8\u09cd\u09b8 \u0985\u09aa\u09b0\u09cd\u09af\u09be\u09aa\u09cd\u09a4 \u2014 \u09a1\u09bf\u09aa\u09cb\u099c\u09bf\u099f \u0995\u09b0\u09c1\u09a8", show_alert=True)
+        return
+    # deduct + record
+    await db.rpatch(f"{db.USERS}/{uid}", {"balance": balance - price})
+    await db.record_purchase(uid, key, p)
+    total = len(p.get("demo_media") or {})
+    await cb.answer()
+    await cb.message.answer(
+        f"\u2705 \u0995\u09c7\u09a8\u09be \u09b8\u09ab\u09b2 \u09b9\u09af\u09bc\u09c7\u099b\u09c7!\n\n"
+        f"\U0001f4e6 <b>{p.get('name', '')}</b> \u098f\u0996\u09a8 \u0986\u09aa\u09a8\u09be\u09b0\u0964\n"
+        f"\U0001f4b0 \u0995\u099f\u09be \u09b9\u09b2\u09cb: {_money(price)} \u09f3 \u2014 \u09a8\u09a4\u09c1\u09a8 \u09ac\u09cd\u09af\u09be\u09b2\u09c7\u09a8\u09cd\u09b8: <b>{_money(balance - price)} \u09f3</b>",
+        reply_markup=kb.package_kb(key, total, owned=True))
+    await _notify_admins(bot,
+        f"\U0001f6d2 <b>\u09a8\u09a4\u09c1\u09a8 \u0995\u09c7\u09a8\u09be</b>\n"
+        f"\U0001f465 <a href=\"tg://user?id={uid}\">{u.get('first_name') or uid}</a> (<code>{uid}</code>)\n"
+        f"\U0001f4e6 {p.get('name', '')}\n"
+        f"\U0001f4b0 {_money(price)} \u09f3 \u2014 \u0985\u09ac\u09b6\u09bf\u09b7\u09cd\u099f \u09ac\u09cd\u09af\u09be\u09b2\u09c7\u09a8\u09cd\u09b8: {_money(balance - price)} \u09f3")
 
 
 @router.callback_query(F.data == "noop")

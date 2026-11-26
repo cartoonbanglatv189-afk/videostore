@@ -1,6 +1,8 @@
 """Firebase Realtime Database REST helpers (no firebase-admin dependency)."""
 from __future__ import annotations
 
+import time
+
 from typing import Any
 
 import httpx
@@ -44,6 +46,7 @@ async def rdelete(path: str) -> bool:
 # ---------- domain helpers ----------
 
 PACKAGES = f"{config.BASE}/packages"
+PURCHASES = f"{config.BASE}/purchases"
 USERS = f"{config.BASE}/users"
 REFERRAL = f"{config.BASE}/referral_config"
 DEPOSITS = f"{config.BASE}/deposits"
@@ -79,3 +82,15 @@ async def credit_balance(uid: str, amount: float) -> None:
         return
     cur = await rget(f"{USERS}/{uid}/balance") or 0
     await rput(f"{USERS}/{uid}/balance", round(float(cur) + amount, 6))
+
+
+async def is_owned(uid: str, key: str) -> bool:
+    return bool(await rget(f"{PURCHASES}/{uid}/{key}"))
+
+
+async def record_purchase(uid: str, key: str, pkg: dict) -> None:
+    await rput(f"{PURCHASES}/{uid}/{key}", {
+        "name": pkg.get("name", "Package"),
+        "price": pkg.get("price") or 0,
+        "purchased_at": int(time.time()),
+    })
