@@ -7,6 +7,7 @@ from aiogram.filters import CommandStart
 from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, InputMediaPhoto, InputMediaVideo, Message
 
 from bot import config, db
+from bot.handlers_admin import _mm
 from bot import keyboards as kb
 
 router = Router()
@@ -121,7 +122,7 @@ async def cmd_start(message: Message, bot: Bot):
         await show_package_msg(message, payload[4:])
         return
 
-    await message.answer(WELCOME, reply_markup=kb.main_menu())
+    await message.answer(WELCOME, reply_markup=_mm(message))
 
 
 @router.message(F.text == "📦 প্যাকেজ")
@@ -129,14 +130,14 @@ async def cmd_start(message: Message, bot: Bot):
 async def show_packages(message: Message):
     pkgs = await db.list_packages()
     if not pkgs:
-        await message.answer("⏳ এখনো কোনো প্যাকেজ যোগ হয়নি — খুব শীঘ্রই আসছে!", reply_markup=kb.main_menu())
+        await message.answer("⏳ এখনো কোনো প্যাকেজ যোগ হয়নি — খুব শীঘ্রই আসছে!", reply_markup=_mm(message))
         return
     await message.answer("📦 <b>সব প্যাকেজ</b> — যেটা দেখতে/কিনতে চান বাছুন:", reply_markup=kb.packages_kb(pkgs))
 
 
 @router.message(F.text == "ℹ️ হেল্প")
 async def show_help(message: Message):
-    await message.answer(HELP, reply_markup=kb.main_menu())
+    await message.answer(HELP, reply_markup=_mm(message))
 
 
 @router.message(F.text == "👥 রেফার")
@@ -231,4 +232,4 @@ async def cb_noop(cb: CallbackQuery):
 
 @router.message()
 async def fallback(message: Message):
-    await message.answer("👇 নিচের মেনু থেকে বাছুন:", reply_markup=kb.main_menu())
+    await message.answer("👇 নিচের মেনু থেকে বাছুন:", reply_markup=_mm(message))

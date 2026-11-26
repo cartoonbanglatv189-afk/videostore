@@ -3,15 +3,15 @@ from __future__ import annotations
 from aiogram.types import ForceReply, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup, KeyboardButton
 
 
-def main_menu() -> ReplyKeyboardMarkup:
-    return ReplyKeyboardMarkup(
-        keyboard=[
-            [KeyboardButton(text="📦 প্যাকেজ"), KeyboardButton(text="👥 রেফার")],
-            [KeyboardButton(text="💰 ডিপোজিট")],
-            [KeyboardButton(text="ℹ️ হেল্প")],
-        ],
-        resize_keyboard=True,
-    )
+def main_menu(is_admin: bool = False) -> ReplyKeyboardMarkup:
+    rows = [
+        [KeyboardButton(text="📦 প্যাকেজ"), KeyboardButton(text="👥 রেফার")],
+        [KeyboardButton(text="💰 ডিপোজিট")],
+        [KeyboardButton(text="ℹ️ হেল্প")],
+    ]
+    if is_admin:
+        rows.append([KeyboardButton(text="🗠 অ্যাডমিন")])
+    return ReplyKeyboardMarkup(keyboard=rows, resize_keyboard=True)
 
 
 def packages_kb(pkgs: dict) -> InlineKeyboardMarkup:
@@ -53,6 +53,7 @@ def admin_menu() -> InlineKeyboardMarkup:
         [InlineKeyboardButton(text="➕ নতুন প্যাকেজ", callback_data="adm:newpkg")],
         [InlineKeyboardButton(text="📦 প্যাকেজ তালিকা", callback_data="adm:pkglist")],
         [InlineKeyboardButton(text="👥 ইউজার সংখ্যা", callback_data="adm:users")],
+        [InlineKeyboardButton(text="💰 ডিপোজিট ম্যানেজমেন্ট", callback_data="adm:dep")],
     ])
 
 

@@ -31,6 +31,11 @@ def admin_only(message: Message) -> bool:
     return message.from_user.id in config.ADMIN_IDS
 
 
+def _mm(message: Message):
+    """main menu keyboard with the admin row visible only to admins"""
+    return kb.main_menu(is_admin=message.from_user.id in config.ADMIN_IDS)
+
+
 def _cb_admin(c: CallbackQuery) -> bool:
     # guards EVERY callback in this router (Telgres allows forged callback_data)
     return c.from_user.id in config.ADMIN_IDS
@@ -45,6 +50,12 @@ async def adm_cmd(message: Message, state: FSMContext):
         return
     await state.clear()
     await message.answer("🛠 <b>এডমিন প্যানেল</b>\nকী করতে চান?", reply_markup=kb.admin_menu())
+
+
+@router.message(F.text == "🗠 অ্যাডমিন")
+@router.message(F.text == "🗠 অ্যাডমিন প্যানেল")
+async def adm_btn(message: Message, state: FSMContext):
+    await adm_cmd(message, state)
 
 
 @router.callback_query(F.data == "adm:menu")

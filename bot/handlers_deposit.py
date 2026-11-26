@@ -16,6 +16,20 @@ from bot import binance_verify as bnv
 
 router = Router()
 
+
+def _mm_x(message):
+    return kb.main_menu(is_admin=message.from_user.id in config.ADMIN_IDS)
+
+
+def _adm_guard(c: CallbackQuery) -> bool:
+    """adm:* callbacks are admin-only; everything else passes"""
+    if c.data and c.data.startswith("adm:"):
+        return c.from_user.id in config.ADMIN_IDS
+    return True
+
+
+router.callback_query.filter(_adm_guard)
+
 # user's earlier requirement: first check after a few seconds, whole cycle stays quick
 def _verify_delays():
     raw = os.environ.get("BINANCE_VERIFY_DELAYS", "")
@@ -91,7 +105,7 @@ async def deposit_menu(message: Message, state: FSMContext):
     methods = {k: v for k, v in methods.items() if isinstance(v, dict) and v.get("address")}
     if not methods:
         await message.answer("⏳ এখন কোনো ডিপোজিট মেথড চালু নেই — কিছুক্ষণ পর আবার চেষ্টা করুন।",
-                             reply_markup=kb.main_menu())
+                             reply_markup=_mm_x(message))
         return
     auto = "✅ অটো-ভেরিফাই চালু" if bnv.bn_creds_ok() else "⏳ ভেরিফাই এডমিন দেখবে"
     await message.answer(f"{DEP_HELP}\n💰 আপনার ব্যালেন্স: <b>${_fmt(bal)}</b>\n🔍 {auto}",
@@ -147,7 +161,7 @@ async def dep_amount(message: Message, state: FSMContext):
     m = await db.rget(f"{db.DEPOSIT_METHODS}/{key}") or {}
     if not m.get("address"):
         await state.clear()
-        await message.answer("❌ মেথডটি আর নেই — আবার শুরু করুন।", reply_markup=kb.main_menu())
+        await message.answer("❌ মেথডটি আর নেই — আবার শুরু করুন।", reply_markup=_mm_x(message))
         return
     mn = float(m.get("min_amount") or 0)
     if mn > 0 and amount < mn:
@@ -202,7 +216,7 @@ async def dep_txid(message: Message, state: FSMContext, bot: Bot):
     m = await db.rget(f"{db.DEPOSIT_METHODS}/{key}") or {}
     if not m.get("address"):
         await state.clear()
-        await message.answer("❌ মেথডটি আর নেই।", reply_markup=kb.main_menu())
+        await message.answer("❌ মেথডটি আর নেই।", reply_markup=_mm_x(message))
         return
     kind, code = _kind_from_network(m.get("network"))
     asset = (str(m.get("asset") or "USDT").strip().upper()) or "USDT"
@@ -227,7 +241,7 @@ async def dep_txid(message: Message, state: FSMContext, bot: Bot):
             "🔁 <b>এই TxID আগেই ব্যবহৃত হয়েছে!</b>\n"
             f"আগের ডিপোজিট: <code>{prev}</code>\n\n"
             "একই TXID দিয়ে দ্বিতীয়বার ব্যালেন্স যোগ হয় না। টাকাটা সত্যিই পাঠিয়ে থাকলে "
-            "এডমিনের সাথে যোগাযোগ করুন।", reply_markup=kb.main_menu())
+            "এডমিনের সাথে যোগাযোগ করুন।", reply_markup=_mm_x(message))
         await state.clear()
         return
 
@@ -253,7 +267,7 @@ async def dep_txid(message: Message, state: FSMContext, bot: Bot):
         f"⏳ <b>Verifying Payment…</b>\n\n"
         f"💰 পরিমাণ: <b>${_fmt(amount)}</b> | ID: <code>{dep_id}</code>\n"
         "🔍 Binance API দিয়ে যাচাই চলছে — একদম সঠিক হলে সাথে সাথেই ব্যালেন্স যোগ হবে!",
-        reply_markup=kb.main_menu())
+        reply_markup=_mm_x(message))
     _start_verify(bot, dep_id, str(message.from_user.id), txid)
 
 
@@ -305,7 +319,7 @@ async def _approve_deposit(bot: Bot, dep_id: str, dep: dict, by: str = "auto") -
             f"✅ <b>ডিপোজিট অনুমোদিত!</b>\n\n"
             f"💰 যোগ হলো: <b>${_fmt(amount)}</b>\n"
             f"👛 আপনার ব্যালেন্স: <b>${_fmt(new_bal)}</b>",
-            reply_markup=kb.main_menu())
+            reply_markup=_mm_x(message))
     except Exception:
         pass
     return "ok", new_bal
@@ -409,7 +423,7 @@ async def cb_dep_hist(cb: CallbackQuery):
     for k, v in mine:
         lines.append(f"{ico.get(v.get('status'), '❓')} ${_fmt(v.get('amount'))} — {v.get('method_name') or ''} "
                      f"<code>{k[:8]}</code>")
-    await cb.message.answer("\n".join(lines), reply_markup=kb.main_menu())
+    await cb.message.answer("\n".join(lines), reply_markup=kb.main_menu(is_admin=cb.from_user.id in config.ADMIN_IDS))
     await cb.answer()
 
 
@@ -578,4 +592,4 @@ async def dep_cancel(message: Message, state: FSMContext):
     if st is not None and str(st).split(":")[0] in ("Dep", "DepM"):
         if message.from_user.id in config.ADMIN_IDS or str(st).startswith("Dep:"):
             await state.clear()
-            await message.answer("❎ বাতিল হলো।", reply_markup=kb.main_menu())
+            await message.answer("❎ বাতিল হলো।", reply_markup=_mm_x(message))
