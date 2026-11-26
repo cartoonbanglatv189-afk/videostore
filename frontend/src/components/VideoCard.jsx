@@ -66,6 +66,8 @@ export default function VideoCard({ video, onUnlock, onLike, onShare, onOpen, on
             <i className="fas fa-eye" /> {views}
           </div>
         </div>
+        {inSingleView ? (
+          <>
         <div className="actions">
           <button
             className={`unlock-btn ${isUnlocked ? 'done' : ''}`}
@@ -91,7 +93,7 @@ export default function VideoCard({ video, onUnlock, onLike, onShare, onOpen, on
               onShare && onShare(video.id)
             }}
           >
-            <i className="fas fa-link" />
+            <i className="fas fa-link" aria-hidden="true" />
           </button>
         </div>
         {!isUnlocked && onBuy && (
@@ -99,11 +101,22 @@ export default function VideoCard({ video, onUnlock, onLike, onShare, onOpen, on
             className="buy-btn"
             onClick={e => {
               e.stopPropagation()
-              if (!inSingleView && onOpen) onOpen(video.id)
-              else if (onBuy) onBuy(video)
+              if (onBuy) onBuy(video)
             }}
           >
-            <i className="fas fa-bolt" /> Unlock without Ads {priceLabel ? `— ${priceLabel}` : ''}
+            <i className="fas fa-bolt" aria-hidden="true" /> Unlock without Ads {priceLabel ? `— ${priceLabel}` : ''}
+          </button>
+        )}
+          </>
+        ) : (
+          <button
+            className="buy-btn"
+            onClick={e => {
+              e.stopPropagation()
+              onOpen && onOpen(video.id)
+            }}
+          >
+            <i className="fas fa-download" aria-hidden="true" /> Download
           </button>
         )}
       </div>
