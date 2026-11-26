@@ -7,6 +7,7 @@ import os
 import secrets
 import time
 from typing import Any
+from urllib.parse import quote
 
 import httpx
 
@@ -28,12 +29,14 @@ def _binance_urls(path_qs: str, hosts: list[str]) -> list[str]:
     Binance geo-blocks many datacenter IPs (Render US returns HTTP 451 on all
     hosts and the region cannot be changed on free instances). BINANCE_RELAY
     enables routing the call through a tiny relay (e.g. a Vercel/Cloudflare
-    function in a non-blocked region): env value like
-    https://relay.example.com/SECRET  (SECRET path prefix, forwarded verbatim).
+    function in a non-blocked region), e.g.:
+        BINANCE_RELAY=https://site.vercel.app/api/binance-proxy?s=bnc9xk4vm2q7
+    The target path (+ query) is passed URL-escaped in the `p` parameter.
     """
     relay = (os.environ.get("BINANCE_RELAY") or "").strip().rstrip("/")
     if relay:
-        return [f"{relay}{path_qs}"]
+        sep = "&" if "?" in relay else "?"
+        return [f"{relay}{sep}p={quote(path_qs, safe='')}"]
     return [f"{host}{path_qs}" for host in hosts]
 
 

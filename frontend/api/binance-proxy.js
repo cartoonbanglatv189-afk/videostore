@@ -1,4 +1,4 @@
-// Vercel Serverless Function (catch-all) — Binance API relay.
+// Vercel Serverless Function — Binance API relay.
 //
 // Binance geo-blocks Render's datacenter IP (HTTP 451) and the region cannot
 // be changed on free instances. This function forwards the backend's signed
@@ -6,24 +6,27 @@
 // Settings -> Functions -> Function Region).
 //
 // On Render set:
-//   BINANCE_RELAY=https://<your-site>.vercel.app/api/binance-proxy/bnc9xk4vm2q7
+//   BINANCE_RELAY=https://<your-site>.vercel.app/api/binance-proxy?s=bnc9xk4vm2q7
 //
-// /api/binance-proxy/<SECRET>/sapi/...       -> https://api.binance.com/...
-// /api/binance-proxy/<SECRET>/binancepay/... -> https://bpay.binanceapi.com/...
+// Call format:
+//   /api/binance-proxy?s=<SECRET>&p=<url-encoded target path + query>
+//     p starting /sapi        -> https://api.binance.com/...
+//     p starting /binancepay  -> https://bpay.binanceapi.com/...
 
 const SECRET = 'bnc9xk4vm2q7'
 
 module.exports = async (req, res) => {
   try {
     const url = new URL(req.url, 'https://relay.local')
-    const parts = url.pathname.split('/').filter(Boolean)
-    if (parts[1] !== 'binance-proxy' || parts[2] !== SECRET || parts.length < 4) {
+    if (url.searchParams.get('s') !== SECRET) {
       return res.status(404).json({ error: 'not-found' })
     }
-    const path = '/' + parts.slice(3).join('/')
-    const target = path.startsWith('/sapi')
-      ? 'https://api.binance.com' + path + url.search
-      : 'https://bpay.binanceapi.com' + path + url.search
+    let p = url.searchParams.get('p') || ''
+    p = decodeURIComponent(p)
+    if (!p.startsWith('/sapi') && !p.startsWith('/binancepay')) {
+      return res.status(400).json({ error: 'bad-path' })
+    }
+    const target = (p.startsWith('/sapi') ? 'https://api.binance.com' : 'https://bpay.binanceapi.com') + p
 
     const r = await fetch(target, {
       method: req.method || 'GET',
