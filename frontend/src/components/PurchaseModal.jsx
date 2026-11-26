@@ -218,6 +218,7 @@ export default function PurchaseModal({ mode, target, userId, onClose, onSuccess
           if (check.auto === false) {
             // Binance gateway could not be reached \u2014 switch to admin verification, never spin forever
             cleanup()
+            setFailReason('auto-fallback')
             setStep('manual-waiting')
             return
           }
@@ -707,7 +708,11 @@ export default function PurchaseModal({ mode, target, userId, onClose, onSuccess
           <div className="ck-card ck-status">
             <div className="ck-check">◷</div>
             <div className="ck-title" style={{ marginBottom: 4 }}>Payment Submitted!</div>
-            <p className="ck-muted">Your payment information has been submitted. The admin will verify it shortly.</p>
+            <p className="ck-muted">
+              {failReason === 'auto-fallback'
+                ? 'Automatic verification is temporarily unavailable right now, so the admin will verify this payment manually — usually within a few minutes. Your payment is safely recorded.'
+                : 'Your payment information has been submitted. The admin will verify it shortly.'}
+            </p>
             <div className="ck-line" />
             <div className="ck-row"><span>Transaction ID</span><b>{txnRef.slice(0, 18)}{txnRef.length > 18 ? '…' : ''}</b></div>
             <div className="ck-row"><span>Total Amount</span><b>{payAmt}</b></div>
