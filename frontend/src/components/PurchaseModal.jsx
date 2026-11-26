@@ -20,6 +20,7 @@ export default function PurchaseModal({ mode, target, userId, onClose, onSuccess
   const [copied, setCopied] = useState('')
   const [selectedWallet, setSelectedWallet] = useState(null)
   const [selectedPayId, setSelectedPayId] = useState('')
+  const [checkCount, setCheckCount] = useState(0)
   const pollRef = useRef(null)
   const verifyTimerRef = useRef(null)
 
@@ -141,7 +142,13 @@ export default function PurchaseModal({ mode, target, userId, onClose, onSuccess
       pollRef.current = setInterval(async () => {
         try {
           const check = await api.binanceCheck(res.purchase_id)
-          if (check.status === 'approved') cleanup()
+          if (check.status === 'approved') {
+            cleanup()
+            showToast('Payment Verified \u2014 Unlocked!')
+            onSuccess && onSuccess()
+            setStep('success')
+            return
+          }
         } catch {
           /* keep polling */
         }
@@ -175,7 +182,14 @@ export default function PurchaseModal({ mode, target, userId, onClose, onSuccess
       pollRef.current = setInterval(async () => {
         try {
           const check = await api.binanceIdCheck(res.purchase_id)
-          if (check.status === 'approved') cleanup()
+          if (check.status === 'approved') {
+            cleanup()
+            showToast('Payment Verified \u2014 Unlocked!')
+            onSuccess && onSuccess()
+            setStep('success')
+            return
+          }
+          setCheckCount(c => c + 1)
         } catch {
           /* keep polling */
         }
@@ -214,7 +228,14 @@ export default function PurchaseModal({ mode, target, userId, onClose, onSuccess
       pollRef.current = setInterval(async () => {
         try {
           const check = await api.cryptoCheck(res.purchase_id)
-          if (check.status === 'approved') cleanup()
+          if (check.status === 'approved') {
+            cleanup()
+            showToast('Payment Verified \u2014 Unlocked!')
+            onSuccess && onSuccess()
+            setStep('success')
+            return
+          }
+          setCheckCount(c => c + 1)
         } catch {
           /* keep polling */
         }
@@ -274,6 +295,7 @@ export default function PurchaseModal({ mode, target, userId, onClose, onSuccess
     setError('')
     setTxnRef('')
     setSender('')
+    setCheckCount(0)
     if (d.kind === 'binance-id') setSelectedPayId(binanceIds[0]?.id || '')
     if (d.kind === 'crypto') setSelectedWallet(d.wallet)
     setStep(d.kind === 'binance-pay' ? 'binance' : 'details')
@@ -531,11 +553,11 @@ export default function PurchaseModal({ mode, target, userId, onClose, onSuccess
           <div className="ck-card ck-status">
             <div className="ck-spinner" />
             <div className="ck-title" style={{ marginBottom: 4 }}>Verifying Payment…</div>
-            <p className="ck-muted">Please keep this page open — we are automatically checking your payment. The video will unlock on its own the moment it is verified (usually 1–5 minutes).</p>
+            <p className="ck-muted">Please keep this page open — we are automatically checking your payment every few seconds. The video will unlock on its own the moment it is verified (usually 1–5 minutes). If the Transaction ID is wrong, we will show you a clear error — it will never wait forever.</p>
             <div className="ck-line" />
             <div className="ck-row"><span>Transaction ID</span><b>{txnRef.slice(0, 18)}{txnRef.length > 18 ? '…' : ''}</b></div>
             <div className="ck-row"><span>Total Amount</span><b>{payAmt}</b></div>
-            <div className="ck-row"><span>Status</span><b style={{ color: 'var(--gold)' }}>Verifying…</b></div>
+            <div className="ck-row"><span>Status</span><b style={{ color: 'var(--gold)' }}>Verifying… (checked {checkCount}×)</b></div>
           </div>
         )}
 
