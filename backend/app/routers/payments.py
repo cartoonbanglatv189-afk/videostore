@@ -121,17 +121,25 @@ async def _match_binance_pay(ref: str, required: float, currency: str, cfg: dict
             tx_amount = float(tx.get("amount") or 0)
         except (TypeError, ValueError):
             continue
-        tx_currency = str(tx.get("currency") or "")
-        tx_id = str(tx.get("transactionId") or tx.get("id") or "").strip()
-        if tx_amount < required or (tx_currency and tx_currency != currency) or not tx_id:
+        # Only RECEIVED transfers count (sent = negative) and never credit twice.
+        if tx_amount <= 0:
             continue
-        if tx_id == ref:
-            exact = {"ok": True, "amount": tx_amount, "tx_id": tx_id}
+        if required > 0 and tx_amount < required:
+            continue
+        tx_currency = str(tx.get("currency") or "")
+        if tx_currency and tx_currency != currency:
+            continue
+        # The Binance app shows the numeric "orderId" on receipts ("Off-chain
+        # transfer 462443681506172928") while the API "transactionId" differs —
+        # accept both, prefer an exact hit on either.
+        tx_id = str(tx.get("transactionId") or "").strip()
+        order_id = str(tx.get("orderId") or "").strip()
+        ts = int(tx.get("transactionTime") or tx.get("payTime") or 0)
+        if ref and (tx_id == ref or order_id == ref):
+            exact = {"ok": True, "amount": tx_amount, "tx_id": tx_id or order_id}
             break
-        if fallback is None:
-            pay_time = int(tx.get("payTime") or 0)
-            if pay_time and (now_ms - pay_time) < window_ms:
-                fallback = {"ok": True, "amount": tx_amount, "tx_id": tx_id}
+        if fallback is None and ts and (now_ms - ts) < window_ms:
+            fallback = {"ok": True, "amount": tx_amount, "tx_id": tx_id or order_id}
     if exact:
         return exact
     if fallback:
