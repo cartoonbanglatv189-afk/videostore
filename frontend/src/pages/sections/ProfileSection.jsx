@@ -16,6 +16,8 @@ export default function ProfileSection({ userId }) {
   const myUser = useFirebaseObject(userId ? `bot_users/${userId}` : '__none__') || {}
   const allDeposits = useFirebaseList('deposits')
   const myDeposits = allDeposits.filter(d => String(d.user_id) === String(userId))
+  const allPurchases = useFirebaseList('purchases')
+  const myPurchases = allPurchases.filter(x => String(x.user_id) === String(userId))
 
   const [depAmount, setDepAmount] = useState('')
   const [depRef, setDepRef] = useState('')
@@ -263,6 +265,29 @@ export default function ProfileSection({ userId }) {
             </div>
           </div>
         ))}
+      </div>
+
+      <h4 style={{ color: '#fda4af', margin: '18px 0 8px' }}>💳 Payment History</h4>
+      <div>
+        {myPurchases.length === 0 && <p style={{ color: '#666', fontSize: 13 }}>No purchases yet.</p>}
+        {[...myPurchases].reverse().map(x => {
+          const item = x.video_name || x.package_name || (x.package_key ? 'Premium Package' : 'Video')
+          const methodLabel = x.method === 'wallet' ? 'Balance' : x.method === 'binance_id' ? 'Binance ID' : x.method === 'binance' ? 'Binance Pay' : x.method === 'crypto' ? `USDT ${x.crypto_network || ''}` : x.method === 'manual' ? 'Mobile Banking' : x.method || ''
+          return (
+            <div key={x._fbKey} className="list-item payable">
+              <div style={{ flex: 1, fontSize: 12, minWidth: 0 }}>
+                <b>{item || 'Item'}</b> {String(x.amount ? x.amount : '')} {x.currency || 'USDT'} — {methodLabel}
+                <div style={{ color: '#9ca3af' }}>
+                  {x.transaction_ref ? x.transaction_ref.slice(0, 20) : ''}
+                  {x.created_at ? ` · ${new Date(x.created_at).toLocaleDateString('en-GB')}` : ''}
+                </div>
+              </div>
+              <div style={{ color: x.status === 'approved' ? '#10b981' : x.status === 'rejected' ? '#ef4444' : '#f59e0b', fontWeight: 700, fontSize: 12 }}>
+                {x.status === 'approved' ? '✔ COMPLETED' : x.status === 'rejected' ? '✖ REJECTED' : '⏳ PENDING'}
+              </div>
+            </div>
+          )
+        })}
       </div>
     </div>
   )
