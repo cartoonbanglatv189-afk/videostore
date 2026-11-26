@@ -86,23 +86,47 @@ async def _credit_excess(user_id: str, required: float, paid: Any) -> None:
         await credit_balance(user_id, excess)
 
 
-async def _match_binance_pay(ref: str, required: float, currency: str, cfg: dict) -> bool:
-    result = await binance.query_pay_transactions(cfg)
+async def _match_binance_pay(ref: str, required: float, currency: str, cfg: dict) -> dict:
+    """Match a Binance Pay transfer.
+
+    Binance Pay transfers are off-chain and the sender's receipt shows a short
+    numeric ID that may differ from the receiver-side transactionId. So we accept:
+      1) an exact transactionId match, OR
+      2) any not-yet-consumed received USDT transfer of the required amount
+         (or more) within the last 2 hours.
+    Consumed transfers are recorded in used_binance_txids so a payment can
+    never be credited twice.
+    """
+    result = await binance.query_pay_transactions(cfg, limit=50)
     if not result.get("ok"):
-        return False
+        return {"ok": False}
+    ref = str(ref or "").strip()
+    now_ms = int(time.time() * 1000)
+    window_ms = 2 * 60 * 60 * 1000
+    exact = None
+    fallback = None
     for tx in result.get("items") or []:
         if not isinstance(tx, dict):
-            continue
-        tx_id = str(tx.get("transactionId") or tx.get("id") or "").strip()
-        if tx_id != ref:
             continue
         try:
             tx_amount = float(tx.get("amount") or 0)
         except (TypeError, ValueError):
             continue
         tx_currency = str(tx.get("currency") or "")
-        if tx_amount >= required and (tx_currency == currency or not tx_currency):
-            return {"ok": True, "amount": tx_amount}
+        tx_id = str(tx.get("transactionId") or tx.get("id") or "").strip()
+        if tx_amount < required or (tx_currency and tx_currency != currency) or not tx_id:
+            continue
+        if tx_id == ref:
+            exact = {"ok": True, "amount": tx_amount, "tx_id": tx_id}
+            break
+        if fallback is None:
+            pay_time = int(tx.get("payTime") or 0)
+            if pay_time and (now_ms - pay_time) < window_ms:
+                fallback = {"ok": True, "amount": tx_amount, "tx_id": tx_id}
+    if exact:
+        return exact
+    if fallback:
+        return fallback
     return {"ok": False}
 
 
@@ -403,13 +427,19 @@ async def binance_id_check(purchase_id: str) -> dict:
         cfg,
     )
     if match.get("ok"):
+        matched_tx = str(match.get("tx_id") or "").strip()
+        now = int(time.time() * 1000)
+        if matched_tx:
+            if await read_data(f"used_binance_txids/{matched_tx}"):
+                await update_data(f"purchases/{purchase_id}", {"status": "rejected", "reject_reason": "duplicate-txid"})
+                return {"ok": False, "status": "rejected", "reason": "duplicate-txid"}
+            await update_data(f"used_binance_txids/{matched_tx}", {"purchase_id": purchase_id, "ts": now})
         if await _ref_already_used(str(purchase.get("transaction_ref") or ""), exclude_purchase=purchase_id):
             await update_data(f"purchases/{purchase_id}", {"status": "rejected", "reject_reason": "duplicate-txid"})
             return {"ok": False, "status": "rejected", "reason": "duplicate-txid"}
-        now = int(time.time() * 1000)
         await update_data(
             f"purchases/{purchase_id}",
-            {"status": "approved", "verified_at": now, "verified_by": "auto-binance-pay"},
+            {"status": "approved", "verified_at": now, "verified_by": "auto-binance-pay", "matched_transaction_id": matched_tx or None},
         )
         await apply_purchase({**purchase, "status": "approved"})
         await _credit_excess(str(purchase.get("user_id") or ""), float(purchase.get("amount") or 0), match.get("amount"))
@@ -500,9 +530,16 @@ async def deposit_check(deposit_id: str) -> dict:
 
     if approved:
         now = int(time.time() * 1000)
+        if method == "binance_id":
+            matched_tx = str(match.get("tx_id") or "").strip()
+            if matched_tx:
+                if await read_data(f"used_binance_txids/{matched_tx}"):
+                    await update_data(f"deposits/{deposit_id}", {"status": "rejected", "reject_reason": "duplicate-txid"})
+                    return {"ok": False, "status": "rejected", "reason": "duplicate-txid"}
+                await update_data(f"used_binance_txids/{matched_tx}", {"deposit_id": deposit_id, "ts": now})
         await update_data(
             f"deposits/{deposit_id}",
-            {"status": "approved", "verified_at": now},
+            {"status": "approved", "verified_at": now, "matched_transaction_id": (str(match.get("tx_id") or "").strip() or None) if method == "binance_id" else None},
         )
         await credit_balance(str(deposit.get("user_id") or ""), paid_amount)
         await reward_referrer_for_user(str(deposit.get("user_id") or ""), "purchase", deposit_id)
