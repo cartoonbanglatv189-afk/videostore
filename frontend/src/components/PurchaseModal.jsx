@@ -227,15 +227,6 @@ export default function PurchaseModal({ mode, target, userId, onClose, onSuccess
 
   async function payWithCrypto() {
     {
-      const tx = txnRef.trim()
-      const net = ((detail && detail.wallet && detail.wallet.network) || '').toUpperCase()
-      const looksReal = net === 'TRC20' ? /^[0-9a-f]{64}$/i.test(tx) : /^0x[0-9a-f]{64}$/i.test(tx)
-      if (!looksReal) {
-        setError('That does not look like a valid Transaction Hash. A real TXID is a long string of 64 characters \u2014 copy the full Transaction Hash from your wallet or exchange (Binance/OKX) history.')
-        return
-      }
-    }
-    {
       const av = parseFloat(amountVal)
       const need = mode === 'package' ? (manualAmount || 0) : amount
       if (!av || isNaN(av) || av < need - 0.000001) {
@@ -629,6 +620,11 @@ export default function PurchaseModal({ mode, target, userId, onClose, onSuccess
             <div className="ck-row"><span>Transaction ID</span><b>{txnRef.slice(0, 18)}{txnRef.length > 18 ? '…' : ''}</b></div>
             <div className="ck-row"><span>Total Amount</span><b>{payAmt}</b></div>
             <div className="ck-row"><span>Status</span><b style={{ color: 'var(--gold)' }}>Verifying… (checked {checkCount}×)</b></div>
+            {checkCount > 12 && (
+              <p className="ck-muted" style={{ marginTop: 10 }}>
+                Not found yet — newer transactions can take a few minutes to appear on the network. If it has been more than 5 minutes, please double-check that you copied the full Transaction Hash.
+              </p>
+            )}
           </div>
         )}
 
