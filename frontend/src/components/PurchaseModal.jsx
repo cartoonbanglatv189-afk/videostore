@@ -21,6 +21,8 @@ export default function PurchaseModal({ mode, target, userId, onClose, onSuccess
   const [selectedWallet, setSelectedWallet] = useState(null)
   const [selectedPayId, setSelectedPayId] = useState('')
   const [checkCount, setCheckCount] = useState(0)
+  const [failReason, setFailReason] = useState('')
+  const [amountVal, setAmountVal] = useState('')
   const pollRef = useRef(null)
   const verifyTimerRef = useRef(null)
 
@@ -159,6 +161,14 @@ export default function PurchaseModal({ mode, target, userId, onClose, onSuccess
   }
 
   async function payWithBinanceId() {
+    {
+      const av = parseFloat(amountVal)
+      const need = mode === 'package' ? (manualAmount || 0) : amount
+      if (!av || isNaN(av) || av < need - 0.000001) {
+        setError('Please pay at least the total amount shown \u2014 or more (extra goes to your Balance)')
+        return
+      }
+    }
     if (!isBackendEnabled()) {
       setError('Payments are not available right now — please try again later.')
       return
@@ -189,6 +199,12 @@ export default function PurchaseModal({ mode, target, userId, onClose, onSuccess
             setStep('success')
             return
           }
+          if (check.auto === false) {
+            // Binance gateway could not be reached \u2014 switch to admin verification, never spin forever
+            cleanup()
+            setStep('manual-waiting')
+            return
+          }
           setCheckCount(c => c + 1)
         } catch {
           /* keep polling */
@@ -200,6 +216,14 @@ export default function PurchaseModal({ mode, target, userId, onClose, onSuccess
   }
 
   async function payWithCrypto() {
+    {
+      const av = parseFloat(amountVal)
+      const need = mode === 'package' ? (manualAmount || 0) : amount
+      if (!av || isNaN(av) || av < need - 0.000001) {
+        setError('Please pay at least the total amount shown \u2014 or more (extra goes to your Balance)')
+        return
+      }
+    }
     if (!isBackendEnabled()) {
       setError('Payments are not available right now — please try again later.')
       return
@@ -233,6 +257,21 @@ export default function PurchaseModal({ mode, target, userId, onClose, onSuccess
             showToast('Payment Verified \u2014 Unlocked!')
             onSuccess && onSuccess()
             setStep('success')
+            return
+          }
+          if (check.ok === false) {
+            // method/broken gateway (e.g. wallet-missing) \u2014 stop spinning
+            cleanup()
+            setFailReason('unavailable')
+            setStep('failed')
+            return
+          }
+          const r = check.reason
+          if (r && r !== 'tx-not-found' && r !== 'network-error' && r !== 'unconfirmed') {
+            // transaction exists but does not match, or the paid amount is too low \u2014 tell the user instantly
+            cleanup()
+            setFailReason(r === 'amount-too-low' ? 'low-amount' : 'mismatch')
+            setStep('failed')
             return
           }
           setCheckCount(c => c + 1)
@@ -296,6 +335,8 @@ export default function PurchaseModal({ mode, target, userId, onClose, onSuccess
     setTxnRef('')
     setSender('')
     setCheckCount(0)
+    setFailReason('')
+    setAmountVal(mode === 'package' && manualAmount ? String(manualAmount) : String(amount || ''))
     if (d.kind === 'binance-id') setSelectedPayId(binanceIds[0]?.id || '')
     if (d.kind === 'crypto') setSelectedWallet(d.wallet)
     setStep(d.kind === 'binance-pay' ? 'binance' : 'details')
@@ -329,6 +370,7 @@ export default function PurchaseModal({ mode, target, userId, onClose, onSuccess
 
   const cur = mode === 'package' && manualAmount ? '৳' : ''
   const payAmt = mode === 'package' && manualAmount ? `${manualAmount} ৳` : `${amount} USDT`
+  const unit = mode === 'package' && manualAmount ? '৳' : 'USDT'
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
@@ -442,7 +484,17 @@ export default function PurchaseModal({ mode, target, userId, onClose, onSuccess
               </div>
 
               <div className="ck-row"><span>Payment Method</span><b>{detail.kind === 'binance-id' ? 'Binance Pay ID' : detail.name}</b></div>
-              <div className="ck-row ck-total"><span>Total Amount</span><span>{payAmt}</span></div>
+              <div className="ck-row ck-total"><span>Total Amount</span><span>{amountVal || payAmt} {unit}</span></div>
+
+              <label className="ck-label">Amount to Send (or more — the extra goes to your Balance)</label>
+              <input
+                className="modal-input"
+                style={{ margin: '7px 0' }}
+                inputMode="decimal"
+                value={amountVal}
+                onChange={e => setAmountVal(e.target.value.replace(/[^0-9.]/g, ''))}
+                placeholder={String(amount ?? '')}
+              />
 
               <label className="ck-label">Receiver Account / Wallet</label>
               <div className="ck-copyrow">
@@ -579,11 +631,21 @@ export default function PurchaseModal({ mode, target, userId, onClose, onSuccess
         {step === 'failed' && (
           <div className="ck-card ck-status">
             <div className="ck-fail">&#10005;</div>
-            <div className="ck-title" style={{ marginBottom: 4 }}>Payment Not Found</div>
-            <p className="ck-muted">No payment was found for the Transaction ID you submitted. If you have already paid, it may still be confirming on the network — please double-check the Transaction ID (TXID) and the network, then submit again. You have not been charged by us.</p>
+            <div className="ck-title" style={{ marginBottom: 4 }}>
+              {failReason === 'low-amount' ? 'Payment Amount Too Low' : failReason === 'mismatch' ? 'Payment Details Mismatch' : failReason === 'unavailable' ? 'Verification Unavailable' : 'Payment Not Found'}
+            </div>
+            <p className="ck-muted">
+              {failReason === 'low-amount'
+                ? 'We found your transaction, but the paid amount is less than the required price. Please send the remaining amount (or the full amount again — any extra goes to your Balance) and submit the new Transaction ID.'
+                : failReason === 'mismatch'
+                  ? 'A transaction was found for this ID, but its details do not match (wrong network, token or recipient address). Please submit the correct Transaction ID — or contact support if you already paid.'
+                  : failReason === 'unavailable'
+                    ? 'Verification is temporarily unavailable for this method. Please try another payment method, or try again in a few minutes.'
+                    : 'No payment was found for the Transaction ID you submitted. If you have already paid, it may still be confirming on the network — please double-check the Transaction ID (TXID) and the network, then submit again. You have not been charged by us.'}
+            </p>
             <div className="ck-line" />
             <div className="ck-row"><span>Transaction ID</span><b>{txnRef.slice(0, 18)}{txnRef.length > 18 ? '…' : ''}</b></div>
-            <div className="ck-row"><span>Status</span><b style={{ color: '#ef4444' }}>Not Found</b></div>
+            <div className="ck-row"><span>Status</span><b style={{ color: '#ef4444' }}>{failReason === 'low-amount' ? 'Amount Too Low' : failReason === 'mismatch' ? 'Details Mismatch' : failReason === 'unavailable' ? 'Unavailable' : 'Not Found'}</b></div>
             <button className="ck-primary" onClick={() => { setStep('checkout'); setDetail(null); setTxnRef(''); setError('') }}>
               Try Another Payment Method
             </button>

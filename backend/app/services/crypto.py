@@ -76,4 +76,4 @@ async def verify_bep20(txid: str, to_address: str, min_amount: float) -> dict:
     receipt = (await rpc("eth_getTransactionReceipt", [txid])).get("result")
     if not receipt or receipt.get("status") != "0x1":
         return _fail("unconfirmed")
-    return {"ok": True}
+    return {"ok": True, "amount": match.get("amount")}
