@@ -14,18 +14,27 @@ BASE_URL = "https://bpay.binanceapi.com"
 
 
 def _client_kwargs() -> dict:
-    """Common httpx client options.
-
-    Binance geo-blocks many datacenter IPs (Render US returns HTTP 451 on all
-    sapi hosts). An optional BINANCE_PROXY env var (e.g. http://host:port)
-    routes Binance traffic through an allowed relay so auto-verify keeps
-    working on any host.
-    """
+    """Common httpx client options."""
     kwargs: dict[str, Any] = {"timeout": 20}
     proxy = (os.environ.get("BINANCE_PROXY") or "").strip()
     if proxy:
         kwargs["proxy"] = proxy
     return kwargs
+
+
+def _binance_urls(path_qs: str, hosts: list[str]) -> list[str]:
+    """URLs to try for one Binance call.
+
+    Binance geo-blocks many datacenter IPs (Render US returns HTTP 451 on all
+    hosts and the region cannot be changed on free instances). BINANCE_RELAY
+    enables routing the call through a tiny relay (e.g. a Vercel/Cloudflare
+    function in a non-blocked region): env value like
+    https://relay.example.com/SECRET  (SECRET path prefix, forwarded verbatim).
+    """
+    relay = (os.environ.get("BINANCE_RELAY") or "").strip().rstrip("/")
+    if relay:
+        return [f"{relay}{path_qs}"]
+    return [f"{host}{path_qs}" for host in hosts]
 
 
 def _sign(secret: str, payload: str) -> str:
@@ -94,8 +103,6 @@ async def query_pay_transactions(cfg: dict, limit: int = 50) -> dict:
         return {"ok": False, "items": []}
     qs = _sapi_query_params(secret, params)
     headers = {"X-MBX-APIKEY": key}
-    # Some hosts (e.g. api.binance.com) refuse datacenter IPs in certain regions;
-    # try every mirror before giving up so auto-verify keeps working on Render.
     hosts = [
         "https://api.binance.com",
         "https://api1.binance.com",
@@ -103,13 +110,14 @@ async def query_pay_transactions(cfg: dict, limit: int = 50) -> dict:
         "https://api3.binance.com",
         "https://api-gcp.binance.com",
     ]
+    urls = _binance_urls(f"/sapi/v1/pay/transactions?{qs}", hosts)
     resp = None
     last_status = None
     try:
         async with httpx.AsyncClient(**_client_kwargs()) as client:
-            for host in hosts:
+            for url in urls:
                 try:
-                    resp = await client.get(f"{host}/sapi/v1/pay/transactions?{qs}", headers=headers)
+                    resp = await client.get(url, headers=headers)
                 except Exception:
                     resp = None
                     continue
@@ -153,13 +161,14 @@ async def query_deposit_history(cfg: dict, limit: int = 50) -> dict:
         "https://api3.binance.com",
         "https://api-gcp.binance.com",
     ]
+    urls = _binance_urls(f"/sapi/v1/capital/deposit/hisrec?{qs}", hosts)
     resp = None
     last_status = None
     try:
         async with httpx.AsyncClient(**_client_kwargs()) as client:
-            for host in hosts:
+            for url in urls:
                 try:
-                    resp = await client.get(f"{host}/sapi/v1/capital/deposit/hisrec?{qs}", headers=headers)
+                    resp = await client.get(url, headers=headers)
                 except Exception:
                     resp = None
                     continue
