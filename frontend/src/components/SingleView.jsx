@@ -84,7 +84,7 @@ export default function SingleView({ video, onClose, onUnlock, onLike, onShare, 
         {!member && !purchased && credits <= 0 && (
           <>
             <div className="pay-guide-line">1️⃣ <b>বিনামূল্যে:</b> UNLOCK ({req}/{req}) বাটনে চাপ দিয়ে অ্যাড দেখুন — প্রতি অ্যাডের পরে প্রগতি বাড়বে, {req} বার হলেই Download সক্রিয়। ভিডিওর প্রগতি সংরক্ষিত থাকবে।</div>
-            <div className="pay-guide-line">2️⃣ <b>দ্রুত &amp; অ্যাড ছাড়া:</b> উপরের ⚡ "অ্যাড ছাড়া আনলক করুন{priceLabel ? ` — ${priceLabel}` : ''}" বাটনে চাপ দিন → Binance Pay দিয়ে পেমেন্ট করলে <b>অটো ভেরিফাই</b> হয়ে আনলক হবে, আর bKash করলে অ্যাডমিন ভেরিফাই করবে।</div>
+            <div className="pay-guide-line">2️⃣ <b>দ্রুত &amp; অ্যাড ছাড়া:</b> উপরের ⚡ "Unlock without Ads{priceLabel ? ` — ${priceLabel}` : ''}" বাটনে চাপ দিন → Binance Pay দিয়ে পেমেন্ট করলে <b>অটো ভেরিফাই</b> হয়ে আনলক হবে, আর bKash করলে অ্যাডমিন ভেরিফাই করবে।</div>
             <div className="pay-guide-line">👑 চাইলে <b>প্রিমিয়াম প্যাকেজ</b> নিন — সব ভিডিও + নতুন সব ভিডিওতে মেম্বার সুবিধা (নিচের 👑 প্রিমিয়াম tab)।</div>
           </>
         )}

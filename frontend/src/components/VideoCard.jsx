@@ -99,10 +99,11 @@ export default function VideoCard({ video, onUnlock, onLike, onShare, onOpen, on
             className="buy-btn"
             onClick={e => {
               e.stopPropagation()
-              onBuy(video)
+              if (!inSingleView && onOpen) onOpen(video.id)
+              else if (onBuy) onBuy(video)
             }}
           >
-            <i className="fas fa-bolt" /> অ্যাড ছাড়া আনলক করুন {priceLabel ? `— ${priceLabel}` : ''}
+            <i className="fas fa-bolt" /> Unlock without Ads {priceLabel ? `— ${priceLabel}` : ''}
           </button>
         )}
       </div>
