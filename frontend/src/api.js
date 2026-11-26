@@ -47,9 +47,9 @@ export const api = {
     if (!isBackendEnabled()) throw new Error('backend-disabled')
     return request('/payments/binance-id/submit', { method: 'POST', body: JSON.stringify(payload) })
   },
-  async binanceIdCheck(purchaseId) {
+  async binanceIdCheck(purchaseId, finalize) {
     if (!isBackendEnabled()) throw new Error('backend-disabled')
-    return request(`/payments/binance-id/check/${purchaseId}`)
+    return request(`/payments/binance-id/check/${purchaseId}${finalize ? '?finalize=1' : ''}`)
   },
   async depositSubmit(payload) {
     if (!isBackendEnabled()) throw new Error('backend-disabled')
@@ -71,9 +71,9 @@ export const api = {
     if (!isBackendEnabled()) throw new Error('backend-disabled')
     return request('/payments/wallet/pay', { method: 'POST', body: JSON.stringify(payload) })
   },
-  async cryptoCheck(purchaseId) {
+  async cryptoCheck(purchaseId, finalize) {
     if (!isBackendEnabled()) throw new Error('backend-disabled')
-    return request(`/payments/crypto/check/${purchaseId}`)
+    return request(`/payments/crypto/check/${purchaseId}${finalize ? '?finalize=1' : ''}`)
   },
   async createVideo(payload) {
     if (!isBackendEnabled()) throw new Error('backend-disabled')
@@ -143,9 +143,9 @@ export const api = {
     if (!isBackendEnabled()) throw new Error('backend-disabled')
     return request('/payments/binance/create', { method: 'POST', body: JSON.stringify(payload) })
   },
-  async binanceCheck(purchaseId) {
+  async binanceCheck(purchaseId, finalize) {
     if (!isBackendEnabled()) throw new Error('backend-disabled')
-    return request(`/payments/binance/check/${purchaseId}`)
+    return request(`/payments/binance/check/${purchaseId}${finalize ? '?finalize=1' : ''}`)
   },
   async manualCreate(payload) {
     if (!isBackendEnabled()) throw new Error('backend-disabled')

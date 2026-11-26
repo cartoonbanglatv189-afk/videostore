@@ -66,14 +66,46 @@ export default function PurchaseModal({ mode, target, userId, onClose, onSuccess
 
   useEffect(() => () => cleanup(), [])
 
-  // Auto-verify deadline: if no payment is found within 7 minutes, show "Payment Not Found"
-  function startVerifyDeadline() {
+  // Fast auto-verify: keep checking for up to 60 seconds. On the deadline one
+  // FINAL server call is made (finalize=1) — if the payment still is not found
+  // the server marks the order rejected immediately (no long pending spins).
+  function startVerifyDeadline(kind, purchase_id) {
     if (verifyTimerRef.current) clearTimeout(verifyTimerRef.current)
-    verifyTimerRef.current = setTimeout(() => {
-      setStep(s => ((s === 'crypto-waiting' || s === 'binance') ? 'failed' : s))
-      setFailReason(f => (f || ''))
+    verifyTimerRef.current = setTimeout(async () => {
+      let status = 'rejected'
+      let serverReason = ''
+      if (purchase_id && isBackendEnabled()) {
+        try {
+          const check =
+            kind === 'binance'
+              ? await api.binanceCheck(purchase_id, true)
+              : kind === 'crypto'
+                ? await api.cryptoCheck(purchase_id, true)
+                : await api.binanceIdCheck(purchase_id, true)
+          status = check.status || 'rejected'
+          serverReason = check.reason || ''
+          if (check.ok === false && !status) status = 'pending'
+        } catch {
+          /* server unreachable — decide locally */
+        }
+      }
       cleanup()
-    }, 7 * 60 * 1000)
+      if (status === 'approved') {
+        showToast('Payment Verified — Unlocked!')
+        onSuccess && onSuccess()
+        setStep('success')
+        return
+      }
+      if (status === 'pending') {
+        // Auto verification could not run (gateway down / not configured) —
+        // hand the order to the admin instead of a false rejection.
+        setFailReason('auto-fallback')
+        setStep('manual-waiting')
+        return
+      }
+      setFailReason(kind === 'binance' ? 'abandoned' : serverReason === 'not-found-timeout' ? 'timeout' : 'notfound')
+      setStep('failed')
+    }, 60 * 1000)
   }
 
   // Success screen auto-closes after a few seconds
@@ -137,8 +169,7 @@ export default function PurchaseModal({ mode, target, userId, onClose, onSuccess
       setPurchaseId(res.purchase_id)
       setCheckoutUrl(res.checkout_url)
       setStep('binance')
-      setFailReason('abandoned')
-      startVerifyDeadline()
+      startVerifyDeadline('binance', res.purchase_id)
       const tg = window.Telegram?.WebApp
       if (res.checkout_url) {
         if (tg?.openLink) tg.openLink(res.checkout_url)
@@ -198,13 +229,13 @@ export default function PurchaseModal({ mode, target, userId, onClose, onSuccess
       }
       setPurchaseId(res.purchase_id)
       setStep('crypto-waiting')
-      startVerifyDeadline()
+      startVerifyDeadline('binance-id', res.purchase_id)
       pollRef.current = setInterval(async () => {
         try {
           const check = await api.binanceIdCheck(res.purchase_id)
           if (check.status === 'rejected') {
             cleanup()
-            setFailReason('duplicate')
+            setFailReason(check.reason === 'not-found-timeout' ? 'timeout' : 'duplicate')
             setStep('failed')
             return
           }
@@ -226,7 +257,7 @@ export default function PurchaseModal({ mode, target, userId, onClose, onSuccess
         } catch {
           /* keep polling */
         }
-      }, 5000)
+      }, 3000)
     } catch (e) {
       setError('Could not connect to the server')
     }
@@ -265,13 +296,13 @@ export default function PurchaseModal({ mode, target, userId, onClose, onSuccess
       }
       setPurchaseId(res.purchase_id)
       setStep('crypto-waiting')
-      startVerifyDeadline()
+      startVerifyDeadline('crypto', res.purchase_id)
       pollRef.current = setInterval(async () => {
         try {
           const check = await api.cryptoCheck(res.purchase_id)
           if (check.status === 'rejected') {
             cleanup()
-            setFailReason('duplicate')
+            setFailReason(check.reason === 'not-found-timeout' ? 'timeout' : 'duplicate')
             setStep('failed')
             return
           }
@@ -301,7 +332,7 @@ export default function PurchaseModal({ mode, target, userId, onClose, onSuccess
         } catch {
           /* keep polling */
         }
-      }, 5000)
+      }, 3000)
     } catch (e) {
       setError('Could not connect to the server')
     }
@@ -638,14 +669,14 @@ export default function PurchaseModal({ mode, target, userId, onClose, onSuccess
           <div className="ck-card ck-status">
             <div className="ck-spinner" />
             <div className="ck-title" style={{ marginBottom: 4 }}>Verifying Payment…</div>
-            <p className="ck-muted">Please keep this page open — we are automatically checking your payment every few seconds. The video will unlock on its own the moment it is verified (usually 1–5 minutes). If the Transaction ID is wrong, we will show you a clear error — it will never wait forever.</p>
+            <p className="ck-muted">Please keep this page open — we check your payment with Binance every 3 seconds. The video unlocks the moment it is verified (usually within seconds). If nothing is found within 60 seconds, the order is rejected and you can try again.</p>
             <div className="ck-line" />
             <div className="ck-row"><span>Transaction ID</span><b>{txnRef.slice(0, 18)}{txnRef.length > 18 ? '…' : ''}</b></div>
             <div className="ck-row"><span>Total Amount</span><b>{payAmt}</b></div>
             <div className="ck-row"><span>Status</span><b style={{ color: 'var(--gold)' }}>Verifying… (checked {checkCount}×)</b></div>
-            {checkCount > 12 && (
+            {checkCount > 5 && (
               <p className="ck-muted" style={{ marginTop: 10 }}>
-                Not found yet — newer transactions can take a few minutes to appear on the network. If it has been more than 5 minutes, please double-check that you copied the full Transaction Hash.
+                Not found yet — some payments appear a little late on the network. Please double-check that you copied the correct Transaction ID while this finishes.
               </p>
             )}
           </div>
@@ -670,7 +701,7 @@ export default function PurchaseModal({ mode, target, userId, onClose, onSuccess
           <div className="ck-card ck-status">
             <div className="ck-fail">&#10005;</div>
             <div className="ck-title" style={{ marginBottom: 4 }}>
-              {failReason === 'low-amount' ? 'Payment Amount Too Low' : failReason === 'mismatch' ? 'Payment Details Mismatch' : failReason === 'unavailable' ? 'Verification Unavailable' : failReason === 'abandoned' ? 'Payment Not Completed' : failReason === 'duplicate' ? 'Transaction ID Already Used' : 'Payment Not Found'}
+              {failReason === 'low-amount' ? 'Payment Amount Too Low' : failReason === 'mismatch' ? 'Payment Details Mismatch' : failReason === 'unavailable' ? 'Verification Unavailable' : failReason === 'abandoned' ? 'Payment Not Completed' : failReason === 'duplicate' ? 'Transaction ID Already Used' : failReason === 'timeout' ? 'Payment Not Verified — Rejected' : 'Payment Not Found'}
             </div>
             <p className="ck-muted">
               {failReason === 'low-amount'
@@ -682,12 +713,14 @@ export default function PurchaseModal({ mode, target, userId, onClose, onSuccess
                     : failReason === 'duplicate'
                       ? 'This Transaction ID has already been used for another payment. Each payment can only be used once. Please double-check and submit a new Transaction ID.'
                     : failReason === 'abandoned'
-                      ? 'We did not receive the payment for this Binance order within 7 minutes, so it was not completed. If you already paid, the video will unlock within a few minutes \u2014 otherwise simply start a new order.'
-                      : 'No payment was found for the Transaction ID you submitted. If you have already paid, it may still be confirming on the network — please double-check the Transaction ID (TXID) and the network, then submit again. You have not been charged by us.'}
+                      ? 'We did not receive the payment for this Binance order within 60 seconds, so the order was rejected. If you already paid, contact support — the admin can still approve it manually. Otherwise simply start a new order.'
+                      : failReason === 'timeout'
+                        ? 'We checked your Transaction ID repeatedly but found no matching payment, so this order was rejected. If you have actually paid, contact support — the admin can still verify and approve it manually. Otherwise, double-check the Transaction ID and try again.'
+                        : 'No payment was found for the Transaction ID you submitted. Please double-check the Transaction ID (TXID) and the network, then submit again. You have not been charged by us.'}
             </p>
             <div className="ck-line" />
             <div className="ck-row"><span>Transaction ID</span><b>{txnRef.slice(0, 18)}{txnRef.length > 18 ? '…' : ''}</b></div>
-            <div className="ck-row"><span>Status</span><b style={{ color: '#ef4444' }}>{failReason === 'low-amount' ? 'Amount Too Low' : failReason === 'mismatch' ? 'Details Mismatch' : failReason === 'unavailable' ? 'Unavailable' : failReason === 'abandoned' ? 'Not Completed' : failReason === 'duplicate' ? 'Already Used' : 'Not Found'}</b></div>
+            <div className="ck-row"><span>Status</span><b style={{ color: '#ef4444' }}>{failReason === 'low-amount' ? 'Amount Too Low' : failReason === 'mismatch' ? 'Details Mismatch' : failReason === 'unavailable' ? 'Unavailable' : failReason === 'abandoned' ? 'Not Completed' : failReason === 'duplicate' ? 'Already Used' : failReason === 'timeout' ? 'Rejected' : 'Not Found'}</b></div>
             <button className="ck-primary" onClick={() => { setStep('checkout'); setDetail(null); setTxnRef(''); setError('') }}>
               Try Another Payment Method
             </button>

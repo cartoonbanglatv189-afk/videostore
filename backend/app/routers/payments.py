@@ -277,7 +277,7 @@ async def binance_create(payload: dict) -> dict:
 
 
 @router.get("/binance/check/{purchase_id}")
-async def binance_check(purchase_id: str) -> dict:
+async def binance_check(purchase_id: str, finalize: int = 0) -> dict:
     purchase = await read_data(f"purchases/{purchase_id}")
     if not purchase:
         raise HTTPException(status_code=404, detail="Purchase not found")
@@ -297,6 +297,15 @@ async def binance_check(purchase_id: str) -> dict:
         await apply_purchase({**purchase, "status": "approved"})
         await reward_referrer_for_user(str(purchase.get("user_id") or ""), "purchase", purchase_id)
         return {"ok": True, "status": "approved"}
+
+    if finalize:
+        # User hit the verification deadline: reject the order immediately
+        # unless payment really is complete on the Binance side.
+        await update_data(
+            f"purchases/{purchase_id}",
+            {"status": "rejected", "reject_reason": "not-found-timeout"},
+        )
+        return {"ok": True, "status": "rejected", "reason": "not-found-timeout"}
 
     return {"ok": True, "status": purchase.get("status") or "pending", "binance_status": binance_status}
 
@@ -373,7 +382,7 @@ async def crypto_submit(payload: dict) -> dict:
 
 
 @router.get("/crypto/check/{purchase_id}")
-async def crypto_check(purchase_id: str) -> dict:
+async def crypto_check(purchase_id: str, finalize: int = 0) -> dict:
     purchase = await read_data(f"purchases/{purchase_id}")
     if not purchase:
         raise HTTPException(status_code=404, detail="Purchase not found")
@@ -406,6 +415,12 @@ async def crypto_check(purchase_id: str) -> dict:
             await _credit_excess(str(purchase.get("user_id") or ""), float(purchase.get("amount") or 0), match.get("amount"))
             await reward_referrer_for_user(str(purchase.get("user_id") or ""), "purchase", purchase_id)
             return {"ok": True, "status": "approved"}
+        if finalize:
+            await update_data(
+                f"purchases/{purchase_id}",
+                {"status": "rejected", "reject_reason": "not-found-timeout"},
+            )
+            return {"ok": True, "status": "rejected", "reason": "not-found-timeout"}
         return {"ok": True, "status": purchase.get("status") or "pending", "reason": "tx-not-found"}
 
     network = str(purchase.get("crypto_network") or "").upper()
@@ -443,6 +458,15 @@ async def crypto_check(purchase_id: str) -> dict:
         await reward_referrer_for_user(str(purchase.get("user_id") or ""), "purchase", purchase_id)
         return {"ok": True, "status": "approved"}
 
+    if finalize and result.get("reason") != "network-error":
+        # Deadline reached and the blockchain really has no matching
+        # transaction - reject right away instead of leaving it pending.
+        await update_data(
+            f"purchases/{purchase_id}",
+            {"status": "rejected", "reject_reason": "not-found-timeout"},
+        )
+        return {"ok": True, "status": "rejected", "reason": "not-found-timeout"}
+
     return {"ok": True, "status": purchase.get("status") or "pending", "reason": result.get("reason")}
 
 
@@ -462,7 +486,7 @@ async def binance_id_submit(payload: dict) -> dict:
 
 
 @router.get("/binance-id/check/{purchase_id}")
-async def binance_id_check(purchase_id: str) -> dict:
+async def binance_id_check(purchase_id: str, finalize: int = 0) -> dict:
     purchase = await read_data(f"purchases/{purchase_id}")
     if not purchase:
         raise HTTPException(status_code=404, detail="Purchase not found")
@@ -499,6 +523,13 @@ async def binance_id_check(purchase_id: str) -> dict:
         await _credit_excess(str(purchase.get("user_id") or ""), float(purchase.get("amount") or 0), match.get("amount"))
         await reward_referrer_for_user(str(purchase.get("user_id") or ""), "purchase", purchase_id)
         return {"ok": True, "status": "approved"}
+
+    if finalize:
+        await update_data(
+            f"purchases/{purchase_id}",
+            {"status": "rejected", "reject_reason": "not-found-timeout"},
+        )
+        return {"ok": True, "status": "rejected", "reason": "not-found-timeout"}
 
     return {"ok": True, "status": purchase.get("status") or "pending", "auto": True}
 
