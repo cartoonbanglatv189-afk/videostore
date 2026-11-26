@@ -75,17 +75,17 @@ export default function SingleView({ video, onClose, onUnlock, onLike, onShare, 
       </div>
 
       <div className="pay-guide">
-        <div className="pay-guide-title">🔒 এই ভিডিও দেখার আগে আনলক করতে হবে</div>
-        {member && <div className="pay-guide-line ok">✅ আপনি নিয়মিত প্রিমিয়াম মেম্বার — সব ভিডিও আনলকড, সরাসরি Download চাপুন</div>}
-        {!member && purchased && <div className="pay-guide-line ok">✅ এই ভিডিওটি আপনি কিনে রেখেছেন — Download বাটন সক্রিয়</div>}
+        <div className="pay-guide-title">🔒 You need to unlock this video before watching</div>
+        {member && <div className="pay-guide-line ok">✅ You are an active Premium member — all videos unlocked, tap Download directly</div>}
+        {!member && purchased && <div className="pay-guide-line ok">✅ You already own this video — the Download button is active</div>}
         {!member && !purchased && credits > 0 && (
-          <div className="pay-guide-line ok">🎁 আপনার {credits} টি ভিডিও ক্রেডিট আছে — UNLOCK চাপলে ১টি ক্রেডিট কাটবে, এড দেখা লাগবে না</div>
+          <div className="pay-guide-line ok">🎁 You have {credits} video credits — tapping Unlock uses 1 credit, no ads needed</div>
         )}
         {!member && !purchased && credits <= 0 && (
           <>
-            <div className="pay-guide-line">1️⃣ <b>বিনামূল্যে:</b> UNLOCK ({req}/{req}) বাটনে চাপ দিয়ে অ্যাড দেখুন — প্রতি অ্যাডের পরে প্রগতি বাড়বে, {req} বার হলেই Download সক্রিয়। ভিডিওর প্রগতি সংরক্ষিত থাকবে।</div>
-            <div className="pay-guide-line">2️⃣ <b>দ্রুত &amp; অ্যাড ছাড়া:</b> উপরের ⚡ "Unlock without Ads{priceLabel ? ` — ${priceLabel}` : ''}" বাটনে চাপ দিন → Binance Pay দিয়ে পেমেন্ট করলে <b>অটো ভেরিফাই</b> হয়ে আনলক হবে, আর bKash করলে অ্যাডমিন ভেরিফাই করবে।</div>
-            <div className="pay-guide-line">👑 চাইলে <b>প্রিমিয়াম প্যাকেজ</b> নিন — সব ভিডিও + নতুন সব ভিডিওতে মেম্বার সুবিধা (নিচের 👑 প্রিমিয়াম tab)।</div>
+            <div className="pay-guide-line">1️⃣ <b>For free:</b> Tap the Unlock ({req}/{req}) button and watch ads — progress increases after each ad, and after {req} the Download button activates. Your progress is saved.</div>
+            <div className="pay-guide-line">2️⃣ <b>Fast &amp; ad-free:</b> Tap the ⚡ "Unlock without Ads{priceLabel ? ` — ${priceLabel}` : ''}" button above → pay with Binance for <b>automatic verification</b> and instant unlock, or pay with bKash and the admin will verify it.</div>
+            <div className="pay-guide-line">👑 Or get a <b>Premium package</b> — access to all videos + member perks on every new video (see the 👑 Premium tab below).</div>
           </>
         )}
       </div>
