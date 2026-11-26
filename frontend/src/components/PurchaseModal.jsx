@@ -558,7 +558,7 @@ export default function PurchaseModal({ mode, target, userId, onClose, onSuccess
                 <div className="ck-notice" style={{ marginTop: 10 }}>
                   {detail.kind === 'binance-id'
                     ? 'Open Binance Pay, send USDT to the Pay ID above, then copy the Transfer ID.'
-                    : `Send USDT on the ${detail.name.replace('USDT ', '')} network to the address above — verify the network before transferring.`}
+                    : `Send USDT on the ${detail.name.replace('USDT ', '')} network to the address above — verify the network before transferring. After paying, copy the Transaction ID (TxID) from your exchange's withdrawal history and paste it below.`}
                 </div>
               )}
 
