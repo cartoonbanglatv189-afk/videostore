@@ -95,14 +95,63 @@ async def _credit_excess(user_id: str, required: float, paid: Any) -> None:
         await credit_balance(user_id, excess)
 
 
+async def _scan_binance_deposits(ref: str, required: float, now_ms: int, window_ms: int) -> tuple:
+    """Scan Binance wallet DEPOSIT history for a matching transfer.
+
+    When a Binance user sends USDT to our wallet ADDRESS from inside the
+    Binance app, Binance routes it off-chain and the receiver history shows
+    txId = "Off-chain transfer <number>" — this NEVER appears in Pay
+    transactions, only in /sapi/v1/capital/deposit/hisrec. Any arriving
+    deposit is real money received by us, so it is eligible the same way.
+    """
+    cfg = (await read_data("payments_config")) or {}
+    result = await binance.query_deposit_history(cfg, limit=50)
+    if not result.get("ok"):
+        return (None, None)
+    ref = str(ref or "").strip()
+    exact = None
+    fallback = None
+    for rec in result.get("items") or []:
+        if not isinstance(rec, dict):
+            continue
+        if str(rec.get("coin") or "").upper() != "USDT":
+            continue
+        try:
+            if int(rec.get("status") or -1) != 1:  # 1 = success
+                continue
+        except (TypeError, ValueError):
+            continue
+        try:
+            amt = float(rec.get("amount") or 0)
+        except (TypeError, ValueError):
+            continue
+        if amt <= 0:
+            continue
+        if required > 0 and amt < required:
+            continue
+        txid_full = str(rec.get("txId") or "").strip()
+        digits = _offchain_digits(txid_full)
+        rec_id = str(rec.get("id") or "").strip()
+        tx_key = f"dep_{rec_id}" if rec_id else (digits or txid_full)
+        ts = int(rec.get("insertTime") or rec.get("completeTime") or 0)
+        if ref and ref and (txid_full == ref or (digits and digits == ref) or (ref in txid_full)):
+            return ({"ok": True, "amount": amt, "tx_id": tx_key}, None)
+        if fallback is None and ts and (now_ms - ts) < window_ms:
+            fallback = {"ok": True, "amount": amt, "tx_id": tx_key}
+    return (exact, fallback)
+
+
 async def _match_binance_pay(ref: str, required: float, currency: str, cfg: dict) -> dict:
-    """Match a Binance Pay transfer.
+    """Match a Binance Pay transfer OR a Binance wallet deposit.
 
     Binance Pay transfers are off-chain and the sender's receipt shows a short
     numeric ID that may differ from the receiver-side transactionId. So we accept:
       1) an exact transactionId match, OR
       2) any not-yet-consumed received USDT transfer of the required amount
          (or more) within the last 2 hours.
+    Deposits sent to our wallet addresses from inside Binance arrive off-chain
+    as "Off-chain transfer <number>" — these are matched via the deposit
+    history too (see _scan_binance_deposits).
     Consumed transfers are recorded in used_binance_txids so a payment can
     never be credited twice.
     """
@@ -144,6 +193,13 @@ async def _match_binance_pay(ref: str, required: float, currency: str, cfg: dict
         return exact
     if fallback:
         return fallback
+
+    # Nothing in Pay history — check wallet deposit history as well.
+    dep_exact, dep_fallback = await _scan_binance_deposits(ref, required, now_ms, window_ms)
+    if dep_exact:
+        return dep_exact
+    if dep_fallback:
+        return dep_fallback
     return {"ok": False}
 
 

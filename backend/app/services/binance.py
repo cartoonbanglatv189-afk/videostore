@@ -109,3 +109,52 @@ async def query_pay_transactions(cfg: dict, limit: int = 50) -> dict:
         return {"ok": False, "items": []}
     items = data.get("data") or []
     return {"ok": isinstance(items, list), "items": items if isinstance(items, list) else []}
+
+
+async def query_deposit_history(cfg: dict, limit: int = 50) -> dict:
+    """Wallet DEPOSIT history (/sapi/v1/capital/deposit/hisrec).
+
+    Needed because on Binance, transfers between two Binance users sent to the
+    wallet address are routed off-chain: the receiver's deposit history shows
+    txId = "Off-chain transfer <number>" — this never appears in Pay
+    transactions, only here.
+    """
+    params = {
+        "limit": limit,
+        "recvWindow": 10000,
+        "timestamp": str(int(time.time() * 1000)),
+    }
+    secret = cfg.get("binance_api_secret", "")
+    key = cfg.get("binance_api_key", "")
+    if not (key and secret):
+        return {"ok": False, "items": []}
+    qs = _sapi_query_params(secret, params)
+    headers = {"X-MBX-APIKEY": key}
+    hosts = [
+        "https://api.binance.com",
+        "https://api1.binance.com",
+        "https://api2.binance.com",
+        "https://api3.binance.com",
+        "https://api-gcp.binance.com",
+    ]
+    resp = None
+    last_status = None
+    try:
+        async with httpx.AsyncClient(timeout=20) as client:
+            for host in hosts:
+                try:
+                    resp = await client.get(f"{host}/sapi/v1/capital/deposit/hisrec?{qs}", headers=headers)
+                except Exception:
+                    resp = None
+                    continue
+                last_status = resp.status_code
+                if resp.status_code == 200:
+                    break
+    except Exception:
+        return {"ok": False, "items": [], "gateway_error": "network"}
+    if resp is None or last_status != 200:
+        return {"ok": False, "items": [], "gateway_error": f"binance-http-{last_status or 'timeout'}"}
+    data = resp.json()
+    if not isinstance(data, list):
+        return {"ok": False, "items": []}
+    return {"ok": True, "items": data}
