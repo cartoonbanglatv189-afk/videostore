@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 import time
 import uuid
 from typing import Any
@@ -32,6 +33,47 @@ async def credit_balance(user_id: str, amount: float) -> None:
     balance = float(current.get("balance") or 0)
     await update_data(path, {"balance": round(balance + amount, 8), "updated_at": int(time.time() * 1000)})
 
+
+
+def _txid_plausible(txid: str, network: str) -> bool:
+    """Reject obviously fake Transaction IDs before they create a pending order."""
+    t = str(txid or "").strip()
+    if len(t) < 16:
+        return False
+    up = str(network or "").upper()
+    if up == "TRC20":
+        return bool(re.fullmatch(r"[0-9a-fA-F]{64}", t))
+    if up in ("BEP20", "ERC20"):
+        return bool(re.fullmatch(r"0x[0-9a-fA-F]{64}", t))
+    return True
+
+
+def _transfer_id_plausible(ref: str) -> bool:
+    """Binance Pay Transfer IDs are long numeric strings."""
+    return bool(re.fullmatch(r"\d{6,25}", str(ref or "").strip()))
+
+
+async def _ref_already_used(ref: str, exclude_purchase: str = "", exclude_deposit: str = "") -> bool:
+    """True if the same transaction reference was already submitted anywhere (purchases or deposits)."""
+    t = str(ref or "").strip().lower()
+    if not t:
+        return False
+
+    def _scan(node: dict, exclude_key: str) -> bool:
+        if not isinstance(node, dict):
+            return False
+        for key, item in node.items():
+            if key == exclude_key or not isinstance(item, dict):
+                continue
+            if str(item.get("transaction_ref") or "").strip().lower() == t:
+                return True
+        return False
+
+    purchases = (await read_data("purchases")) or {}
+    if _scan(purchases, exclude_purchase):
+        return True
+    deposits = (await read_data("deposits")) or {}
+    return _scan(deposits, exclude_deposit)
 
 async def _credit_excess(user_id: str, required: float, paid: Any) -> None:
     """If the user paid more than required, top up the remainder to their wallet."""
@@ -222,6 +264,8 @@ async def binance_check(purchase_id: str) -> dict:
 async def manual_create(payload: dict) -> dict:
     purchase = await _build_purchase(payload, "manual")
     purchase["transaction_ref"] = str(payload.get("transaction_ref") or "")
+    if purchase["transaction_ref"] and await _ref_already_used(purchase["transaction_ref"]):
+        return {"ok": False, "reason": "duplicate-txid"}
     cfg = (await read_data("payments_config")) or {}
     purchase_id = await push_data("purchases", purchase)
     return {
@@ -268,6 +312,10 @@ async def crypto_submit(payload: dict) -> dict:
     txid = str(payload.get("txid") or "").strip()
     if not network or not txid:
         raise HTTPException(status_code=400, detail="network and txid required")
+    if not _txid_plausible(txid, network):
+        return {"ok": False, "reason": "invalid-txid"}
+    if await _ref_already_used(txid):
+        return {"ok": False, "reason": "duplicate-txid"}
     purchase["crypto_network"] = network
     purchase["transaction_ref"] = txid
     purchase_id = await push_data("purchases", purchase)
@@ -304,6 +352,9 @@ async def crypto_check(purchase_id: str) -> dict:
         float(purchase.get("amount") or 0),
     )
     if result.get("ok"):
+        if await _ref_already_used(str(purchase.get("transaction_ref") or ""), exclude_purchase=purchase_id):
+            await update_data(f"purchases/{purchase_id}", {"status": "rejected", "reject_reason": "duplicate-txid"})
+            return {"ok": False, "status": "rejected", "reason": "duplicate-txid"}
         now = int(time.time() * 1000)
         await update_data(
             f"purchases/{purchase_id}",
@@ -323,6 +374,10 @@ async def binance_id_submit(payload: dict) -> dict:
     ref_id = str(payload.get("transfer_id") or payload.get("txid") or "").strip()
     if not ref_id:
         raise HTTPException(status_code=400, detail="transfer_id required")
+    if not _transfer_id_plausible(ref_id):
+        return {"ok": False, "reason": "invalid-txid"}
+    if await _ref_already_used(ref_id):
+        return {"ok": False, "reason": "duplicate-txid"}
     purchase["transaction_ref"] = ref_id
     purchase_id = await push_data("purchases", purchase)
     return {"ok": True, "purchase_id": purchase_id}
@@ -348,6 +403,9 @@ async def binance_id_check(purchase_id: str) -> dict:
         cfg,
     )
     if match.get("ok"):
+        if await _ref_already_used(str(purchase.get("transaction_ref") or ""), exclude_purchase=purchase_id):
+            await update_data(f"purchases/{purchase_id}", {"status": "rejected", "reject_reason": "duplicate-txid"})
+            return {"ok": False, "status": "rejected", "reason": "duplicate-txid"}
         now = int(time.time() * 1000)
         await update_data(
             f"purchases/{purchase_id}",
@@ -373,6 +431,12 @@ async def deposit_submit(payload: dict) -> dict:
     network = str(payload.get("network") or "").upper()
     if not user_id or amount <= 0 or not ref or method not in ("crypto", "binance_id"):
         return {"ok": False, "reason": "invalid"}
+    if method == "crypto" and not _txid_plausible(ref, network):
+        return {"ok": False, "reason": "invalid-txid"}
+    if method == "binance_id" and not _transfer_id_plausible(ref):
+        return {"ok": False, "reason": "invalid-txid"}
+    if await _ref_already_used(ref):
+        return {"ok": False, "reason": "duplicate-txid"}
     deposit = {
         "user_id": user_id,
         "amount": amount,

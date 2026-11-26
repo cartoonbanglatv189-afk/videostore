@@ -193,7 +193,7 @@ export default function PurchaseModal({ mode, target, userId, onClose, onSuccess
         mode === 'package' ? { user_id: userId, package_key: target._fbKey } : { user_id: userId, video_id: target._fbKey || target.id }
       const res = await api.binanceIdSubmit({ ...ref0, transfer_id: txnRef.trim(), sender: sender.trim() })
       if (!res.ok) {
-        setError('Submit failed — please try again')
+        setError(submitFailMessage(res.reason))
         return
       }
       setPurchaseId(res.purchase_id)
@@ -202,6 +202,12 @@ export default function PurchaseModal({ mode, target, userId, onClose, onSuccess
       pollRef.current = setInterval(async () => {
         try {
           const check = await api.binanceIdCheck(res.purchase_id)
+          if (check.status === 'rejected') {
+            cleanup()
+            setFailReason('duplicate')
+            setStep('failed')
+            return
+          }
           if (check.status === 'approved') {
             cleanup()
             showToast('Payment Verified \u2014 Unlocked!')
@@ -253,7 +259,7 @@ export default function PurchaseModal({ mode, target, userId, onClose, onSuccess
         mode === 'package' ? { user_id: userId, package_key: target._fbKey } : { user_id: userId, video_id: target._fbKey || target.id }
       const res = await api.cryptoSubmit({ ...ref0, network: wallet0.network, txid: txnRef.trim(), sender: sender.trim() })
       if (!res.ok) {
-        setError('Submit failed — please try again')
+        setError(submitFailMessage(res.reason))
         return
       }
       setPurchaseId(res.purchase_id)
@@ -262,6 +268,12 @@ export default function PurchaseModal({ mode, target, userId, onClose, onSuccess
       pollRef.current = setInterval(async () => {
         try {
           const check = await api.cryptoCheck(res.purchase_id)
+          if (check.status === 'rejected') {
+            cleanup()
+            setFailReason('duplicate')
+            setStep('failed')
+            return
+          }
           if (check.status === 'approved') {
             cleanup()
             showToast('Payment Verified \u2014 Unlocked!')
@@ -331,6 +343,16 @@ export default function PurchaseModal({ mode, target, userId, onClose, onSuccess
     }
     setPurchaseId(purchase_id)
     setStep('manual-waiting')
+  }
+
+  function submitFailMessage(reason) {
+    if (reason === 'duplicate-txid') {
+      return 'This Transaction ID has already been submitted before. Each payment can only be used once " + DASH + " please submit the Transaction ID of your new payment.'
+    }
+    if (reason === 'invalid-txid') {
+      return 'This Transaction ID does not look real. A crypto TXID is a long 64-character hash, and a Binance Transfer ID is a long number " + DASH + " copy it fully from your payment history.'
+    }
+    return 'Submit failed " + DASH + " please try again'
   }
 
   function copyVal(v) {
@@ -647,7 +669,7 @@ export default function PurchaseModal({ mode, target, userId, onClose, onSuccess
           <div className="ck-card ck-status">
             <div className="ck-fail">&#10005;</div>
             <div className="ck-title" style={{ marginBottom: 4 }}>
-              {failReason === 'low-amount' ? 'Payment Amount Too Low' : failReason === 'mismatch' ? 'Payment Details Mismatch' : failReason === 'unavailable' ? 'Verification Unavailable' : failReason === 'abandoned' ? 'Payment Not Completed' : 'Payment Not Found'}
+              {failReason === 'low-amount' ? 'Payment Amount Too Low' : failReason === 'mismatch' ? 'Payment Details Mismatch' : failReason === 'unavailable' ? 'Verification Unavailable' : failReason === 'abandoned' ? 'Payment Not Completed' : failReason === 'duplicate' ? 'Transaction ID Already Used' : 'Payment Not Found'}
             </div>
             <p className="ck-muted">
               {failReason === 'low-amount'
@@ -656,13 +678,15 @@ export default function PurchaseModal({ mode, target, userId, onClose, onSuccess
                   ? 'A transaction was found for this ID, but its details do not match (wrong network, token or recipient address). Please submit the correct Transaction ID — or contact support if you already paid.'
                   : failReason === 'unavailable'
                     ? 'Verification is temporarily unavailable for this method. Please try another payment method, or try again in a few minutes.'
+                    : failReason === 'duplicate'
+                      ? 'This Transaction ID has already been used for another payment. Each payment can only be used once. Please double-check and submit a new Transaction ID.'
                     : failReason === 'abandoned'
                       ? 'We did not receive the payment for this Binance order within 7 minutes, so it was not completed. If you already paid, the video will unlock within a few minutes \u2014 otherwise simply start a new order.'
                       : 'No payment was found for the Transaction ID you submitted. If you have already paid, it may still be confirming on the network — please double-check the Transaction ID (TXID) and the network, then submit again. You have not been charged by us.'}
             </p>
             <div className="ck-line" />
             <div className="ck-row"><span>Transaction ID</span><b>{txnRef.slice(0, 18)}{txnRef.length > 18 ? '…' : ''}</b></div>
-            <div className="ck-row"><span>Status</span><b style={{ color: '#ef4444' }}>{failReason === 'low-amount' ? 'Amount Too Low' : failReason === 'mismatch' ? 'Details Mismatch' : failReason === 'unavailable' ? 'Unavailable' : failReason === 'abandoned' ? 'Not Completed' : 'Not Found'}</b></div>
+            <div className="ck-row"><span>Status</span><b style={{ color: '#ef4444' }}>{failReason === 'low-amount' ? 'Amount Too Low' : failReason === 'mismatch' ? 'Details Mismatch' : failReason === 'unavailable' ? 'Unavailable' : failReason === 'abandoned' ? 'Not Completed' : failReason === 'duplicate' ? 'Already Used' : 'Not Found'}</b></div>
             <button className="ck-primary" onClick={() => { setStep('checkout'); setDetail(null); setTxnRef(''); setError('') }}>
               Try Another Payment Method
             </button>
